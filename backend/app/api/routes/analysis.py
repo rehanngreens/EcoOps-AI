@@ -1,6 +1,8 @@
+import json
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, status
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -12,11 +14,16 @@ from app.parsers.kubernetes_parser import (
 )
 from app.schemas.infrastructure_schema import (
     AnalysisConfigurationResponse,
-    AnalyzeResponse,
     InfrastructureConfiguration,
     ValidationResponse,
 )
+from app.schemas.unified_schema import (
+    AnalysisFeaturesResponse,
+    AnalyzeResponse,
+)
+from app.schemas.workload_schema import WorkloadProfile
 from app.services import analysis_service
+from app.services.feature_service import extract_features
 
 router = APIRouter(prefix="/api/v1")
 settings = get_settings()
@@ -65,6 +72,33 @@ def _parse_upload(yaml_text: str) -> InfrastructureConfiguration:
     return InfrastructureConfiguration.model_validate(parsed)
 
 
+def _parse_workload(raw: str | None) -> WorkloadProfile:
+    if raw is None or not raw.strip():
+        return WorkloadProfile()
+
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid workload JSON",
+        ) from exc
+
+    if not isinstance(payload, dict):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Workload must be a JSON object",
+        )
+
+    try:
+        return WorkloadProfile.model_validate(payload)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=exc.errors(),
+        ) from exc
+
+
 @router.post("/validate", response_model=ValidationResponse)
 async def validate_manifest(file: UploadFile) -> ValidationResponse:
     content = await file.read()
@@ -77,14 +111,27 @@ async def validate_manifest(file: UploadFile) -> ValidationResponse:
 @router.post("/analyze", response_model=AnalyzeResponse, status_code=status.HTTP_201_CREATED)
 async def analyze_manifest(
     file: UploadFile,
+    workload: str | None = Form(default=None),
     db: Session = Depends(get_db),
 ) -> AnalyzeResponse:
     content = await file.read()
     _validate_upload(file, content)
     yaml_text = _decode_upload(content)
     configuration = _parse_upload(yaml_text)
-    record = analysis_service.create_analysis(db, configuration)
-    return AnalyzeResponse(analysis_id=record.id, configuration=configuration)
+    workload_profile = _parse_workload(workload)
+    features = extract_features(configuration, workload_profile)
+    record = analysis_service.create_analysis(
+        db,
+        configuration,
+        workload_profile,
+        features,
+    )
+    return AnalyzeResponse(
+        analysis_id=record.id,
+        configuration=configuration,
+        workload=workload_profile,
+        features=features,
+    )
 
 
 @router.get(
@@ -104,4 +151,33 @@ def get_analysis_configuration(
     return AnalysisConfigurationResponse(
         analysis_id=record.id,
         configuration=analysis_service.to_configuration(record),
+    )
+
+
+@router.get(
+    "/analysis/{analysis_id}/features",
+    response_model=AnalysisFeaturesResponse,
+)
+def get_analysis_features(
+    analysis_id: str,
+    db: Session = Depends(get_db),
+) -> AnalysisFeaturesResponse:
+    record = analysis_service.get_analysis(db, analysis_id)
+    if record is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Analysis '{analysis_id}' not found",
+        )
+
+    features = analysis_service.to_features(record)
+    if features is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Features for analysis '{analysis_id}' not found",
+        )
+
+    return AnalysisFeaturesResponse(
+        analysis_id=record.id,
+        workload=analysis_service.to_workload(record),
+        features=features,
     )

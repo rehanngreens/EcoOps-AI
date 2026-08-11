@@ -19,11 +19,6 @@ class ValidationResponse(BaseModel):
     errors: list[str] = Field(default_factory=list)
 
 
-class AnalyzeResponse(BaseModel):
-    analysis_id: str
-    configuration: InfrastructureConfiguration
-
-
 class AnalysisConfigurationResponse(BaseModel):
     analysis_id: str
     configuration: InfrastructureConfiguration
