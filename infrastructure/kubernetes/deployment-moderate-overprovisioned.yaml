@@ -9,6 +9,7 @@
 #   memory_limit_gb: 8        # 8Gi
 #   autoscaling_enabled: false
 #   container_image: ecommerce/api-backend:1.0.0
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:

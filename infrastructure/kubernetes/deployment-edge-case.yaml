@@ -12,6 +12,7 @@
 #   container_image: myapp:1.0.0
 # If aggregating all containers instead:
 #   cpu_request: 0.6, cpu_limit: 1.2, memory_request_gb: 0.625, memory_limit_gb: 1.25
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
