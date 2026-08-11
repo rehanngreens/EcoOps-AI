@@ -19,4 +19,5 @@ def test_health_check() -> None:
     data = response.json()
     assert data["status"] == "ok"
     assert data["service"] == "EcoOps AI"
+    assert data["database"] == "ok"
     assert "version" in data

@@ -1,0 +1,51 @@
+# Expected parser output (sanity check for unit tests):
+# Multi-container policy: use PRIMARY (first) container unless parser sums all containers.
+#   source_type: kubernetes
+#   application: sidecar-app
+#   namespace: default
+#   replicas: 1
+#   cpu_request: 0.5          # primary container "app" — 500m
+#   cpu_limit: 1
+#   memory_request_gb: 0.5    # primary container "app" — 512Mi
+#   memory_limit_gb: 1        # primary container "app" — 1Gi
+#   autoscaling_enabled: false
+#   container_image: myapp:1.0.0
+# If aggregating all containers instead:
+#   cpu_request: 0.6, cpu_limit: 1.2, memory_request_gb: 0.625, memory_limit_gb: 1.25
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sidecar-app
+  namespace: default
+  labels:
+    app: sidecar-app
+    scenario: edge-multi-container
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sidecar-app
+  template:
+    metadata:
+      labels:
+        app: sidecar-app
+    spec:
+      containers:
+        - name: app
+          image: myapp:1.0.0
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+        - name: sidecar
+          image: logging-agent:2.0.0
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"

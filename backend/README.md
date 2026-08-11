@@ -13,17 +13,61 @@ pip install -r requirements-dev.txt   # optional, for tests
 cp .env.example .env
 ```
 
-## Run
+## Run with Docker (recommended)
+
+From the repository root:
+
+```bash
+docker compose up --build
+```
+
+This starts PostgreSQL and the API. Migrations run automatically on backend startup.
+
+- API: http://localhost:8000/
+- Health: http://localhost:8000/health
+- Docs: http://localhost:8000/docs
+
+## Run locally (without Docker)
+
+1. Start PostgreSQL and create the `ecoops` database (or adjust `DATABASE_URL` in `.env`).
+2. Apply migrations:
+
+```bash
+cd backend
+alembic upgrade head
+```
+
+3. Start the API:
 
 ```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-- API root: http://localhost:8000/
-- Health check: http://localhost:8000/health
-- OpenAPI docs: http://localhost:8000/docs
+## API
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/v1/validate` | Validate an uploaded Kubernetes YAML file |
+| `POST` | `/api/v1/analyze` | Parse and store normalized configuration |
+| `GET` | `/api/v1/analysis/{id}/configuration` | Retrieve a stored configuration |
+
+Example:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/analyze \
+  -F "file=@../infrastructure/kubernetes/deployment-well-provisioned.yaml"
+```
+
+## Database migrations
+
+```bash
+alembic upgrade head          # apply migrations
+alembic revision -m "message" # create a new migration
+```
 
 ## Test
+
+Tests use an in-memory SQLite database automatically.
 
 ```bash
 pytest

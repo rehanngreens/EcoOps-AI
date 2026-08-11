@@ -4,9 +4,11 @@ from collections.abc import AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from app.api.routes import api_router
 from app.core.config import get_settings
+from app.core.database import engine
 
 settings = get_settings()
 
@@ -20,6 +22,13 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     logger.info("Starting %s v%s", settings.app_name, settings.app_version)
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+        logger.info("Database connection established")
+    except Exception:
+        logger.exception("Database connection failed")
+        raise
     yield
 
 

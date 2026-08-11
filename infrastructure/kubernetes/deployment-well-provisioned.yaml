@@ -1,0 +1,42 @@
+# Expected parser output (sanity check for unit tests):
+#   source_type: kubernetes
+#   application: api-backend
+#   namespace: ecommerce
+#   replicas: 2
+#   cpu_request: 0.5          # 500m → cores
+#   cpu_limit: 1
+#   memory_request_gb: 0.5    # 512Mi → Gi (binary)
+#   memory_limit_gb: 2        # 2Gi
+#   autoscaling_enabled: false
+#   container_image: ecommerce/api-backend:1.0.0
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-backend
+  namespace: ecommerce
+  labels:
+    app: api-backend
+    scenario: well-provisioned
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api-backend
+  template:
+    metadata:
+      labels:
+        app: api-backend
+    spec:
+      containers:
+        - name: api-backend
+          image: ecommerce/api-backend:1.0.0
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"

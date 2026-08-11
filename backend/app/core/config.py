@@ -13,6 +13,11 @@ class Settings(BaseSettings):
 
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
 
+    max_upload_size_bytes: int = 1_048_576
+    allowed_upload_extensions: str = ".yaml,.yml"
+
+    database_url: str = "postgresql+psycopg://ecoops:ecoops@localhost:5432/ecoops"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -22,6 +27,14 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def allowed_upload_extension_list(self) -> list[str]:
+        return [
+            ext.strip()
+            for ext in self.allowed_upload_extensions.split(",")
+            if ext.strip()
+        ]
 
 
 @lru_cache
