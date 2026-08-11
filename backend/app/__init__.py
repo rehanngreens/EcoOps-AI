@@ -1,0 +1,1 @@
+"""EcoOps AI backend application."""
