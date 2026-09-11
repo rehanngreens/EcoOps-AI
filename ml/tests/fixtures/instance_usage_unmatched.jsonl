@@ -1,0 +1,2 @@
+{"start_time": "300", "collection_id": "77", "instance_index": "1", "average_usage": {"cpus": 0.2, "memory": 0.1}, "maximum_usage": {"cpus": 0.5, "memory": 0.4}, "assigned_memory": 0}
+{"start_time": "310", "collection_id": "77", "instance_index": "2", "average_usage": {"cpus": 0.1, "memory": 0.05}, "maximum_usage": {"cpus": 0.2, "memory": 0.1}, "assigned_memory": 0.25}
