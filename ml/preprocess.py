@@ -7,6 +7,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pandas as pd
 from sklearn.model_selection import train_test_split
 
 from config import (
@@ -16,6 +17,7 @@ from config import (
     PROCESSED_DIR,
     RANDOM_STATE,
     RAW_TRACE_DIR,
+    SYNTHETIC_ROW_COUNT,
     TEST_FILENAME,
     TEST_SIZE,
     TRAIN_FILENAME,
@@ -23,6 +25,7 @@ from config import (
 )
 from feature_mapping import FEATURE_COLUMNS, TARGET_COLUMNS, build_training_table
 from load_trace import load_events_frame, load_usage_frame
+from synthetic_augment import SYNTHETIC_ALLOCATION_SOURCE, generate_synthetic_rows
 
 
 def preprocess(
@@ -40,8 +43,14 @@ def preprocess(
     if table.empty:
         raise ValueError("Preprocessing produced no training rows")
 
+    # Combine real trace rows with the documented synthetic Kubernetes-scale
+    # demand component (design doc section 14). Synthetic rows are generated
+    # with a derived seed so the split stays deterministic.
+    synthetic = generate_synthetic_rows(SYNTHETIC_ROW_COUNT, seed=random_state)
+    combined = pd.concat([table, synthetic], ignore_index=True)
+
     train_df, test_df = train_test_split(
-        table,
+        combined,
         test_size=test_size,
         random_state=random_state,
     )
@@ -62,7 +71,10 @@ def preprocess(
         "events_loaded": int(len(events)),
         "usage_loaded": int(len(usage)),
         "allocation_source": allocation_source,
-        "training_rows": int(len(table)),
+        "synthetic_source": SYNTHETIC_ALLOCATION_SOURCE,
+        "synthetic_rows": int(len(synthetic)),
+        "training_rows": int(len(combined)),
+        "trace_rows": int(len(table)),
         "train_rows": int(len(train_df)),
         "test_rows": int(len(test_df)),
         "feature_columns": FEATURE_COLUMNS,
@@ -73,6 +85,7 @@ def preprocess(
             "expected_users, traffic_score, max_latency_ms, and availability_target are documented defaults.",
             "replicas is fixed at 1 because the trace has no Kubernetes replica count.",
             "application_type_code is a proxy from scheduling_class, not a labeled application type.",
+            "Synthetic Kubernetes-scale demand rows are mixed in per design doc section 14; see ml/synthetic_augment.py for the documented method.",
         ],
     }
     metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")

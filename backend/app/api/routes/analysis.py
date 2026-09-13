@@ -17,6 +17,7 @@ from app.schemas.infrastructure_schema import (
     InfrastructureConfiguration,
     ValidationResponse,
 )
+from app.schemas.recommendation_schema import AnalysisRecommendationsResponse, OptimizeResponse
 from app.schemas.unified_schema import (
     AnalysisConstraintsResponse,
     AnalysisFeaturesResponse,
@@ -28,6 +29,7 @@ from app.services import (
     constraint_service,
     estimation_service,
     prediction_service,
+    recommendation_service,
 )
 from app.services.feature_service import extract_features
 from app.services.prediction_service import (
@@ -240,4 +242,57 @@ def get_analysis_constraints(
     return AnalysisConstraintsResponse(
         analysis_id=record.id,
         constraints=constraints,
+    )
+
+
+@router.post(
+    "/analysis/{analysis_id}/optimize",
+    response_model=OptimizeResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def optimize_analysis(
+    analysis_id: str,
+    db: Session = Depends(get_db),
+) -> OptimizeResponse:
+    """Generate, evaluate, rank, and persist scale-down recommendations."""
+    try:
+        return recommendation_service.run_optimization(db, analysis_id)
+    except KeyError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Analysis '{analysis_id}' not found",
+        ) from None
+    except (ModelArtifactsUnavailableError, ModelCompatibilityError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+
+@router.get(
+    "/analysis/{analysis_id}/recommendations",
+    response_model=AnalysisRecommendationsResponse,
+)
+def get_analysis_recommendations(
+    analysis_id: str,
+    db: Session = Depends(get_db),
+) -> AnalysisRecommendationsResponse:
+    """Return the persisted recommendation set for one analysis."""
+    try:
+        stored = recommendation_service.get_recommendations(db, analysis_id)
+    except KeyError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Analysis '{analysis_id}' not found",
+        ) from None
+
+    if stored is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Recommendations for analysis '{analysis_id}' not found; run optimize first",
+        )
+
+    return AnalysisRecommendationsResponse(
+        analysis_id=stored.analysis_id,
+        recommendation_set=stored.recommendation_set,
     )

@@ -1,0 +1,67 @@
+from enum import Enum
+
+from pydantic import BaseModel, Field
+
+
+class RecommendationStatus(str, Enum):
+    """Outcome of one optimization run."""
+
+    recommended = "recommended"
+    no_recommendation = "no_recommendation"
+
+
+class RecommendationItem(BaseModel):
+    """One parameter change inside a recommendation set (design doc section 19)."""
+
+    parameter: str
+    current_value: str
+    suggested_value: str
+    reason: str
+
+
+class EstimationTotals(BaseModel):
+    """Estimated cost/energy/carbon totals for one configuration."""
+
+    estimated_cost_usd: float = Field(..., ge=0)
+    estimated_energy_kwh: float = Field(..., ge=0)
+    estimated_carbon_kg_co2e: float = Field(..., ge=0)
+
+
+class RecommendationTotals(BaseModel):
+    """Baseline vs optimized totals with reductions."""
+
+    baseline: EstimationTotals
+    optimized: EstimationTotals
+    cost_reduction_usd: float = Field(..., ge=0)
+    energy_reduction_kwh: float = Field(..., ge=0)
+    carbon_reduction_kg_co2e: float = Field(..., ge=0)
+
+
+class RejectedCandidate(BaseModel):
+    """A rejected candidate kept for transparency."""
+
+    summary: str
+    reason: str
+
+
+class RecommendationSet(BaseModel):
+    """Full result of one optimization run."""
+
+    status: RecommendationStatus
+    baseline_configuration: dict
+    optimized_configuration: dict | None = None
+    totals: RecommendationTotals | None = None
+    items: list[RecommendationItem] = Field(default_factory=list)
+    rejected_candidates: list[RejectedCandidate] = Field(default_factory=list)
+    explanation: str
+    disclaimer: str
+
+
+class OptimizeResponse(BaseModel):
+    analysis_id: str
+    recommendation_set: RecommendationSet
+
+
+class AnalysisRecommendationsResponse(BaseModel):
+    analysis_id: str
+    recommendation_set: RecommendationSet

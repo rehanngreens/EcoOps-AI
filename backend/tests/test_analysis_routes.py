@@ -261,3 +261,87 @@ def test_constraints_endpoint_not_found() -> None:
 
     assert response.status_code == 404
     assert "not found" in response.json()["detail"]
+
+
+def test_optimize_on_missing_analysis_returns_404() -> None:
+    response = client.post("/api/v1/analysis/nonexistent-id/optimize")
+
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"]
+
+
+def test_optimize_and_get_recommendations_end_to_end() -> None:
+    analyze_response = client.post(
+        "/api/v1/analyze",
+        files={
+            "file": (
+                "deployment.yaml",
+                load_manifest("deployment-heavy-overprovisioned.yaml"),
+                "application/x-yaml",
+            ),
+            "workload": (None, json.dumps(HEAVY_WORKLOAD), "application/json"),
+        },
+    )
+    analysis_id = analyze_response.json()["analysis_id"]
+
+    optimize_response = client.post(f"/api/v1/analysis/{analysis_id}/optimize")
+
+    assert optimize_response.status_code == 201
+    optimize_data = optimize_response.json()
+    recommendation_set = optimize_data["recommendation_set"]
+
+    assert recommendation_set["status"] in {"recommended", "no_recommendation"}
+    assert "advisory prototype estimates" in recommendation_set["disclaimer"]
+    assert recommendation_set["baseline_configuration"]["replicas"] == 8
+
+    if recommendation_set["status"] == "recommended":
+        assert recommendation_set["optimized_configuration"] is not None
+        assert recommendation_set["optimized_configuration"] != recommendation_set["baseline_configuration"]
+        totals = recommendation_set["totals"]
+        assert totals["cost_reduction_usd"] >= 0
+        assert totals["optimized"]["estimated_cost_usd"] <= totals["baseline"]["estimated_cost_usd"]
+        assert len(recommendation_set["items"]) >= 1
+        for item in recommendation_set["items"]:
+            assert item["parameter"] in {
+                "cpu_request",
+                "memory_request_gb",
+                "replicas",
+                "autoscaling_enabled",
+            }
+            assert item["current_value"] != item["suggested_value"]
+            assert item["reason"]
+    else:
+        assert recommendation_set["optimized_configuration"] is None
+        assert len(recommendation_set["rejected_candidates"]) >= 1
+
+    stored_response = client.get(f"/api/v1/analysis/{analysis_id}/recommendations")
+    assert stored_response.status_code == 200
+    stored_data = stored_response.json()
+    assert stored_data["analysis_id"] == analysis_id
+    assert stored_data["recommendation_set"]["status"] == recommendation_set["status"]
+    assert stored_data["recommendation_set"]["items"] == recommendation_set["items"]
+
+
+def test_recommendations_before_optimize_returns_404() -> None:
+    analyze_response = client.post(
+        "/api/v1/analyze",
+        files={
+            "file": (
+                "deployment.yaml",
+                load_manifest("deployment-well-provisioned.yaml"),
+                "application/x-yaml",
+            )
+        },
+    )
+    analysis_id = analyze_response.json()["analysis_id"]
+
+    response = client.get(f"/api/v1/analysis/{analysis_id}/recommendations")
+
+    assert response.status_code == 404
+    assert "run optimize first" in response.json()["detail"]
+
+
+def test_recommendations_for_missing_analysis_returns_404() -> None:
+    response = client.get("/api/v1/analysis/nonexistent-id/recommendations")
+
+    assert response.status_code == 404
