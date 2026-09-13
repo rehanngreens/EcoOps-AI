@@ -29,6 +29,16 @@ class Settings(BaseSettings):
     data_center_pue: float = Field(default=1.4, ge=1)
     carbon_intensity_gco2_per_kwh: float = Field(default=430.0, ge=0)
 
+    # Phase 8 constraint engine thresholds (documented prototype heuristics).
+    cpu_headroom_threshold: float = Field(default=0.70, ge=0, le=1)
+    memory_headroom_threshold: float = Field(default=0.85, ge=0, le=1)
+    latency_base_ms: float = Field(default=50.0, gt=0)
+    max_users_per_replica: float = Field(default=2000.0, gt=0)
+    traffic_multiplier_low: float = Field(default=0.5, gt=0)
+    traffic_multiplier_medium: float = Field(default=1.0, gt=0)
+    traffic_multiplier_high: float = Field(default=2.0, gt=0)
+    traffic_multiplier_variable: float = Field(default=1.25, gt=0)
+
     model_dir: Path = PROJECT_ROOT / "ml" / "models"
 
     model_config = SettingsConfigDict(

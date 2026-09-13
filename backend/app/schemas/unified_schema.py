@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 
+from app.schemas.constraint_schema import ConstraintEvaluation
 from app.schemas.infrastructure_schema import InfrastructureConfiguration
 from app.schemas.workload_schema import WorkloadProfile
 
@@ -81,9 +82,15 @@ class AnalyzeResponse(BaseModel):
     features: FeatureVector
     prediction: UtilizationPrediction
     estimation: SustainabilityEstimation
+    constraints: ConstraintEvaluation
 
 
 class AnalysisFeaturesResponse(BaseModel):
     analysis_id: str
     workload: WorkloadProfile
     features: FeatureVector
+
+
+class AnalysisConstraintsResponse(BaseModel):
+    analysis_id: str
+    constraints: ConstraintEvaluation

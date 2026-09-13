@@ -17,9 +17,18 @@ from app.schemas.infrastructure_schema import (
     InfrastructureConfiguration,
     ValidationResponse,
 )
-from app.schemas.unified_schema import AnalysisFeaturesResponse, AnalyzeResponse
+from app.schemas.unified_schema import (
+    AnalysisConstraintsResponse,
+    AnalysisFeaturesResponse,
+    AnalyzeResponse,
+)
 from app.schemas.workload_schema import WorkloadProfile
-from app.services import analysis_service, estimation_service, prediction_service
+from app.services import (
+    analysis_service,
+    constraint_service,
+    estimation_service,
+    prediction_service,
+)
 from app.services.feature_service import extract_features
 from app.services.prediction_service import (
     ModelArtifactsUnavailableError,
@@ -135,6 +144,7 @@ async def analyze_manifest(
         features,
     )
     estimation = estimation_service.estimate_sustainability(features, prediction)
+    constraints = constraint_service.evaluate_constraints(features, prediction)
     return AnalyzeResponse(
         analysis_id=record.id,
         configuration=configuration,
@@ -142,6 +152,7 @@ async def analyze_manifest(
         features=features,
         prediction=prediction,
         estimation=estimation,
+        constraints=constraints,
     )
 
 
@@ -191,4 +202,42 @@ def get_analysis_features(
         analysis_id=record.id,
         workload=analysis_service.to_workload(record),
         features=features,
+    )
+
+
+@router.get(
+    "/analysis/{analysis_id}/constraints",
+    response_model=AnalysisConstraintsResponse,
+)
+def get_analysis_constraints(
+    analysis_id: str,
+    db: Session = Depends(get_db),
+) -> AnalysisConstraintsResponse:
+    """Recompute constraint feasibility from the stored analysis record."""
+    record = analysis_service.get_analysis(db, analysis_id)
+    if record is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Analysis '{analysis_id}' not found",
+        )
+
+    features = analysis_service.to_features(record)
+    if features is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Features for analysis '{analysis_id}' not found",
+        )
+
+    try:
+        prediction = prediction_service.predict_utilization(features)
+    except (ModelArtifactsUnavailableError, ModelCompatibilityError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+    constraints = constraint_service.evaluate_constraints(features, prediction)
+    return AnalysisConstraintsResponse(
+        analysis_id=record.id,
+        constraints=constraints,
     )

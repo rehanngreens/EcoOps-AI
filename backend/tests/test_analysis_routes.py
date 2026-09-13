@@ -200,3 +200,64 @@ def test_analyze_returns_transparent_estimation() -> None:
 def test_get_features_not_found() -> None:
     response = client.get("/api/v1/analysis/nonexistent-id/features")
     assert response.status_code == 404
+
+
+def test_analyze_includes_constraint_evaluation() -> None:
+    response = client.post(
+        "/api/v1/analyze",
+        files={
+            "file": (
+                "deployment.yaml",
+                load_manifest("deployment-well-provisioned.yaml"),
+                "application/x-yaml",
+            ),
+            "workload": (None, json.dumps(HEAVY_WORKLOAD), "application/json"),
+        },
+    )
+
+    assert response.status_code == 201
+    constraints = response.json()["constraints"]
+    assert isinstance(constraints["satisfied"], bool)
+    check_names = {check["name"] for check in constraints["checks"]}
+    assert check_names == {
+        "cpu_headroom",
+        "memory_headroom",
+        "latency_feasibility",
+        "availability_replicas",
+        "user_capacity",
+    }
+    for check in constraints["checks"]:
+        assert check["status"] in {"pass", "fail"}
+        assert check["required"]
+        assert check["actual"]
+        assert check["explanation"]
+    assert "not measured performance" in constraints["disclaimer"]
+
+
+def test_constraints_endpoint_recomputes_from_stored_analysis() -> None:
+    analyze_response = client.post(
+        "/api/v1/analyze",
+        files={
+            "file": (
+                "deployment.yaml",
+                load_manifest("deployment-well-provisioned.yaml"),
+                "application/x-yaml",
+            )
+        },
+    )
+    analysis_id = analyze_response.json()["analysis_id"]
+
+    response = client.get(f"/api/v1/analysis/{analysis_id}/constraints")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["analysis_id"] == analysis_id
+    assert data["constraints"]["satisfied"] is True
+    assert len(data["constraints"]["checks"]) == 5
+
+
+def test_constraints_endpoint_not_found() -> None:
+    response = client.get("/api/v1/analysis/nonexistent-id/constraints")
+
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"]
