@@ -63,6 +63,26 @@ def _candidate(
             memory_request_gb if memory_request_gb is not None else base.memory_request_gb
         ),
     }
+    # Scale limits proportionally with requests so candidates are internally
+    # consistent; limits never end up below the new request.
+    if (
+        cpu_request is not None
+        and base.cpu_request
+        and base.cpu_limit is not None
+        and cpu_request != base.cpu_request
+    ):
+        ratio = cpu_request / base.cpu_request
+        update["cpu_limit"] = max(cpu_request, round(base.cpu_limit * ratio * 1000) / 1000)
+    if (
+        memory_request_gb is not None
+        and base.memory_request_gb
+        and base.memory_limit_gb is not None
+        and memory_request_gb != base.memory_request_gb
+    ):
+        ratio = memory_request_gb / base.memory_request_gb
+        update["memory_limit_gb"] = max(
+            memory_request_gb, round(base.memory_limit_gb * ratio * 100) / 100
+        )
     if autoscaling_enabled is not None:
         update["autoscaling_enabled"] = autoscaling_enabled
     configuration = base.model_copy(update=update)

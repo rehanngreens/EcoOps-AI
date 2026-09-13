@@ -13,12 +13,14 @@ def create_analysis(
     configuration: InfrastructureConfiguration,
     workload: WorkloadProfile,
     features: FeatureVector,
+    original_yaml: str | None = None,
 ) -> Analysis:
     record = Analysis(
         id=str(uuid4()),
         configuration=configuration.model_dump(),
         workload=workload.model_dump(),
         features=features.model_dump(),
+        original_yaml=original_yaml,
     )
     db.add(record)
     db.commit()

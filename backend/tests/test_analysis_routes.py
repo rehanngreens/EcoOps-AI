@@ -345,3 +345,96 @@ def test_recommendations_for_missing_analysis_returns_404() -> None:
     response = client.get("/api/v1/analysis/nonexistent-id/recommendations")
 
     assert response.status_code == 404
+
+
+def test_optimized_config_end_to_end_with_real_round_trip() -> None:
+    analyze_response = client.post(
+        "/api/v1/analyze",
+        files={
+            "file": (
+                "deployment.yaml",
+                load_manifest("deployment-heavy-overprovisioned.yaml"),
+                "application/x-yaml",
+            ),
+            "workload": (None, json.dumps(HEAVY_WORKLOAD), "application/json"),
+        },
+    )
+    analysis_id = analyze_response.json()["analysis_id"]
+
+    optimize_response = client.post(f"/api/v1/analysis/{analysis_id}/optimize")
+    assert optimize_response.status_code == 201
+
+    response = client.get(f"/api/v1/analysis/{analysis_id}/optimized-config")
+
+    if optimize_response.json()["recommendation_set"]["status"] != "recommended":
+        assert response.status_code == 404
+        return
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["source"] == "stored_original"
+    assert data["original_yaml"] == load_manifest("deployment-heavy-overprovisioned.yaml")
+    assert "kind: Deployment" in data["optimized_yaml"]
+    assert data["diff"], "diff should not be empty when a recommendation exists"
+    assert any(change["parameter"] for change in data["changes"])
+    assert "deploy manually" in data["disclaimer"]
+
+    # Generated YAML must round-trip to the stored optimized configuration.
+    import yaml as pyyaml
+
+    from app.parsers.kubernetes_parser import parse_kubernetes_yaml
+
+    parsed = parse_kubernetes_yaml(data["optimized_yaml"])
+    stored_optimized = optimize_response.json()["recommendation_set"]["optimized_configuration"]
+    assert parsed == stored_optimized
+
+
+def test_optimized_config_before_optimize_returns_404() -> None:
+    analyze_response = client.post(
+        "/api/v1/analyze",
+        files={
+            "file": (
+                "deployment.yaml",
+                load_manifest("deployment-well-provisioned.yaml"),
+                "application/x-yaml",
+            )
+        },
+    )
+    analysis_id = analyze_response.json()["analysis_id"]
+
+    response = client.get(f"/api/v1/analysis/{analysis_id}/optimized-config")
+
+    assert response.status_code == 404
+    assert "run optimize first" in response.json()["detail"]
+
+
+def test_optimized_config_when_no_recommendation_accepted_returns_404() -> None:
+    analyze_response = client.post(
+        "/api/v1/analyze",
+        files={
+            "file": (
+                "deployment.yaml",
+                load_manifest("deployment-well-provisioned.yaml"),
+                "application/x-yaml",
+            ),
+            "workload": (None, json.dumps(HEAVY_WORKLOAD), "application/json"),
+        },
+    )
+    analysis_id = analyze_response.json()["analysis_id"]
+
+    optimize_response = client.post(f"/api/v1/analysis/{analysis_id}/optimize")
+    assert optimize_response.status_code == 201
+
+    if optimize_response.json()["recommendation_set"]["status"] == "recommended":
+        pytest.skip("model recommended for this scenario; 404 path not applicable")
+
+    response = client.get(f"/api/v1/analysis/{analysis_id}/optimized-config")
+
+    assert response.status_code == 404
+    assert "no accepted recommendation" in response.json()["detail"]
+
+
+def test_optimized_config_missing_analysis_returns_404() -> None:
+    response = client.get("/api/v1/analysis/nonexistent-id/optimized-config")
+
+    assert response.status_code == 404

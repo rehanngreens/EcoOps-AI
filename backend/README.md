@@ -65,6 +65,10 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 | `POST` | `/api/v1/analyze` | Parse YAML, return utilization predictions, and estimate cost, energy, and carbon |
 | `GET` | `/api/v1/analysis/{id}/configuration` | Retrieve a stored configuration |
 | `GET` | `/api/v1/analysis/{id}/features` | Retrieve stored workload and ML-ready features |
+| `GET` | `/api/v1/analysis/{id}/constraints` | Retrieve the constraint feasibility evaluation |
+| `POST` | `/api/v1/analysis/{id}/optimize` | Generate and persist scale-down recommendations |
+| `GET` | `/api/v1/analysis/{id}/recommendations` | Retrieve the stored recommendation set |
+| `GET` | `/api/v1/analysis/{id}/optimized-config` | Retrieve the optimized manifest with diff and change list |
 
 Example:
 

@@ -17,6 +17,7 @@ from app.schemas.infrastructure_schema import (
     InfrastructureConfiguration,
     ValidationResponse,
 )
+from app.schemas.optimization_schema import OptimizedConfigResponse
 from app.schemas.recommendation_schema import AnalysisRecommendationsResponse, OptimizeResponse
 from app.schemas.unified_schema import (
     AnalysisConstraintsResponse,
@@ -26,11 +27,13 @@ from app.schemas.unified_schema import (
 from app.schemas.workload_schema import WorkloadProfile
 from app.services import (
     analysis_service,
+    config_generator_service,
     constraint_service,
     estimation_service,
     prediction_service,
     recommendation_service,
 )
+from app.services.config_generator_service import ConfigGenerationError
 from app.services.feature_service import extract_features
 from app.services.prediction_service import (
     ModelArtifactsUnavailableError,
@@ -144,6 +147,7 @@ async def analyze_manifest(
         configuration,
         workload_profile,
         features,
+        original_yaml=yaml_text,
     )
     estimation = estimation_service.estimate_sustainability(features, prediction)
     constraints = constraint_service.evaluate_constraints(features, prediction)
@@ -295,4 +299,99 @@ def get_analysis_recommendations(
     return AnalysisRecommendationsResponse(
         analysis_id=stored.analysis_id,
         recommendation_set=stored.recommendation_set,
+    )
+
+
+@router.get(
+    "/analysis/{analysis_id}/optimized-config",
+    response_model=OptimizedConfigResponse,
+)
+def get_optimized_config(
+    analysis_id: str,
+    db: Session = Depends(get_db),
+) -> OptimizedConfigResponse:
+    """Generate the optimized manifest from the stored recommendation."""
+    record = analysis_service.get_analysis(db, analysis_id)
+    if record is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Analysis '{analysis_id}' not found",
+        )
+
+    try:
+        stored = recommendation_service.get_recommendations(db, analysis_id)
+    except KeyError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Analysis '{analysis_id}' not found",
+        ) from None
+
+    if stored is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=(
+                f"Recommendations for analysis '{analysis_id}' not found; "
+                f"run optimize first"
+            ),
+        )
+
+    if stored.recommendation_set.status.value != "recommended":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=(
+                f"Analysis '{analysis_id}' has no accepted recommendation; "
+                f"the current configuration is kept"
+            ),
+        )
+
+    optimized_configuration = stored.recommendation_set.optimized_configuration
+    if optimized_configuration is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Analysis '{analysis_id}' has no optimized configuration stored",
+        )
+
+    optimized = InfrastructureConfiguration.model_validate(optimized_configuration)
+    baseline = analysis_service.to_configuration(record)
+    original_text = record.original_yaml or ""
+
+    try:
+        generated = config_generator_service.generate_optimized_config(
+            original_text, optimized, baseline
+        )
+    except ConfigGenerationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+    return OptimizedConfigResponse(
+        analysis_id=record.id,
+        source=generated_source(original_text),
+        original_yaml=(
+            original_text
+            if original_text.strip()
+            else generated_canonical_original(optimized)
+        ),
+        optimized_yaml=generated.optimized_yaml,
+        diff=generated.diff_lines,
+        changes=generated.changes,
+        disclaimer=(
+            "The optimized manifest is a proposal generated from advisory "
+            "estimates. The original configuration is preserved unchanged; "
+            "review the diff and deploy manually only if you accept it."
+        ),
+    )
+
+
+def generated_source(original_text: str) -> str:
+    return "stored_original" if original_text.strip() else "canonical"
+
+
+def generated_canonical_original(optimized: InfrastructureConfiguration) -> str:
+    import yaml
+
+    return yaml.dump(
+        config_generator_service._rebuild_original_from_baseline_needed(optimized),
+        sort_keys=False,
     )

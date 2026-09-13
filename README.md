@@ -4,7 +4,7 @@
 
 EcoOps AI helps Cloud and DevOps engineers review Infrastructure as Code (IaC) *before* deployment. It analyzes infrastructure allocations alongside a workload profile to identify likely overprovisioning, predict resource utilization, estimate cost, energy use, and carbon impact, and propose constraint-aware optimizations for human review.
 
-This repository implements the first seven phases of the planned final-year B.Tech CSE prototype: Kubernetes analysis, ML utilization prediction, and transparent cost/energy/carbon estimation. The remaining roadmap is documented below.
+This repository implements the first nine phases of the planned final-year B.Tech CSE prototype: Kubernetes analysis, ML utilization prediction, transparent cost/energy/carbon estimation, a constraint engine, and a recommendation engine. The remaining roadmap is documented below.
 
 ## Why EcoOps AI?
 
@@ -125,17 +125,19 @@ Kubernetes YAML upload → validation → parser → normalized JSON API respons
 
 ## Planned API
 
-These endpoints are design targets and may change as the application is implemented.
+Implemented endpoints are marked below; the interactive FastAPI docs are also available at `/docs` when the server runs. The `GET /api/v1/analysis/{id}` aggregate endpoint is still a design target; analysis data is currently exposed via the per-resource endpoints.
 
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| `POST` | `/api/v1/validate` | Validate an uploaded IaC configuration |
-| `POST` | `/api/v1/analyze` | Submit IaC and a workload profile for analysis |
-| `GET` | `/api/v1/analysis/{id}` | Retrieve an analysis result |
-| `POST` | `/api/v1/analysis/{id}/optimize` | Produce optimization recommendations |
-| `GET` | `/api/v1/analysis/{id}/recommendations` | Retrieve recommendations |
-| `GET` | `/api/v1/analysis/{id}/configuration` | Retrieve normalized configuration data |
-| `GET` | `/api/v1/analysis/{id}/optimized-config` | Retrieve the proposed optimized configuration |
+| Method | Endpoint | Purpose | Status |
+| --- | --- | --- | --- |
+| `POST` | `/api/v1/validate` | Validate an uploaded Kubernetes YAML | Implemented |
+| `POST` | `/api/v1/analyze` | Analyze IaC + workload: parse, predict utilization, estimate cost/energy/carbon, evaluate constraints | Implemented |
+| `GET` | `/api/v1/analysis/{id}/configuration` | Retrieve stored normalized configuration | Implemented |
+| `GET` | `/api/v1/analysis/{id}/features` | Retrieve stored workload profile and ML-ready features | Implemented |
+| `GET` | `/api/v1/analysis/{id}/constraints` | Retrieve the constraint feasibility evaluation (recomputed from stored analysis) | Implemented |
+| `POST` | `/api/v1/analysis/{id}/optimize` | Generate, evaluate, rank, and persist scale-down recommendations | Implemented |
+| `GET` | `/api/v1/analysis/{id}/recommendations` | Retrieve the persisted recommendation set | Implemented |
+| `GET` | `/api/v1/analysis/{id}/optimized-config` | Retrieve the optimized manifest, a diff against the original, and the change list | Implemented |
+| `GET` | `/api/v1/analysis/{id}` | Retrieve an aggregate analysis result | Planned |
 
 ## Planned repository layout
 
@@ -167,8 +169,8 @@ EcoOps-AI/
 2. Implement Kubernetes YAML validation and parsing.
 3. Define the normalized infrastructure schema.
 4. Prepare data and train an initial utilization model.
-5. Add prediction, estimation, constraint, and recommendation services.
-6. Generate optimized YAML while preserving the original configuration.
+5. Add prediction, estimation, constraint, and recommendation services. (done - phases 5-9)
+6. Generate optimized YAML while preserving the original configuration. (done - phase 10)
 7. Build the dashboard and integrate the API.
 8. Add Terraform and Docker Compose parsers.
 9. Test, containerize, and optionally deploy.
@@ -179,7 +181,7 @@ Keep modules small and independently testable. In particular, parsers, ML code, 
 
 ## Project status
 
-**Phases 1–7 implemented:** Kubernetes parsing, normalized features, dataset preprocessing, utilization-model training, prediction API, and transparent cost/energy/carbon estimation. See [EcoOps-AI project design.md](<EcoOps-AI project design.md>) for the remaining roadmap.
+**Phases 1–9 implemented:** Kubernetes parsing, normalized features, dataset preprocessing, utilization-model training (including a documented synthetic Kubernetes-scale demand component, see `ml/synthetic_augment.py`), prediction API, transparent cost/energy/carbon estimation, the constraint engine (five configurable feasibility checks), and the recommendation engine (constraint-gated candidate ranking with persisted results via `POST /analysis/{id}/optimize`). Phase 10 adds optimized YAML generation (`GET /analysis/{id}/optimized-config` returns the optimized manifest, a unified diff against the preserved original, and the change list). Remaining: dashboard (Phase 11), and Terraform/Docker Compose parsers (Phases 12–13). See [EcoOps-AI project design.md](<EcoOps-AI project design.md>) for the roadmap.
 
 ## License
 
