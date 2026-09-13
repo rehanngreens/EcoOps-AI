@@ -174,7 +174,27 @@ def test_analyze_reports_missing_model_artifacts(monkeypatch: pytest.MonkeyPatch
 
 def test_get_configuration_not_found() -> None:
     response = client.get("/api/v1/analysis/nonexistent-id/configuration")
+
     assert response.status_code == 404
+
+
+def test_analyze_returns_transparent_estimation() -> None:
+    response = client.post(
+        "/api/v1/analyze",
+        files={
+            "file": (
+                "deployment.yaml",
+                load_manifest("deployment-well-provisioned.yaml"),
+                "application/x-yaml",
+            )
+        },
+    )
+    assert response.status_code == 201
+    estimation = response.json()["estimation"]
+    assert estimation["estimated_cost_usd"] > 0
+    assert estimation["estimated_energy_kwh"] >= 0
+    assert estimation["estimated_carbon_kg_co2e"] >= 0
+    assert "not measured usage" in estimation["disclaimer"]
 
 
 def test_get_features_not_found() -> None:

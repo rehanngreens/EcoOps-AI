@@ -19,7 +19,7 @@ from app.schemas.infrastructure_schema import (
 )
 from app.schemas.unified_schema import AnalysisFeaturesResponse, AnalyzeResponse
 from app.schemas.workload_schema import WorkloadProfile
-from app.services import analysis_service, prediction_service
+from app.services import analysis_service, estimation_service, prediction_service
 from app.services.feature_service import extract_features
 from app.services.prediction_service import (
     ModelArtifactsUnavailableError,
@@ -134,12 +134,14 @@ async def analyze_manifest(
         workload_profile,
         features,
     )
+    estimation = estimation_service.estimate_sustainability(features, prediction)
     return AnalyzeResponse(
         analysis_id=record.id,
         configuration=configuration,
         workload=workload_profile,
         features=features,
         prediction=prediction,
+        estimation=estimation,
     )
 
 
