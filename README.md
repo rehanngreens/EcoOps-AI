@@ -4,7 +4,7 @@
 
 EcoOps AI helps Cloud and DevOps engineers review Infrastructure as Code (IaC) *before* deployment. It analyzes infrastructure allocations alongside a workload profile to identify likely overprovisioning, predict resource utilization, estimate cost, energy use, and carbon impact, and propose constraint-aware optimizations for human review.
 
-This repository currently contains the project's architecture and implementation design. The application is planned as a final-year B.Tech CSE prototype and is not yet implemented.
+This repository implements the first seven phases of the planned final-year B.Tech CSE prototype: Kubernetes analysis, ML utilization prediction, and transparent cost/energy/carbon estimation. The remaining roadmap is documented below.
 
 ## Why EcoOps AI?
 
@@ -179,7 +179,7 @@ Keep modules small and independently testable. In particular, parsers, ML code, 
 
 ## Project status
 
-**Design and planning phase.** See [EcoOps-AI project design.md](<EcoOps-AI project design.md>) for the complete architecture, scope, implementation guidance, and success criteria.
+**Phases 1–7 implemented:** Kubernetes parsing, normalized features, dataset preprocessing, utilization-model training, prediction API, and transparent cost/energy/carbon estimation. See [EcoOps-AI project design.md](<EcoOps-AI project design.md>) for the remaining roadmap.
 
 ## License
 

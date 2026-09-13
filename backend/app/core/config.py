@@ -1,6 +1,10 @@
 from functools import lru_cache
+from pydantic import Field
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
 
 
 class Settings(BaseSettings):
@@ -17,6 +21,25 @@ class Settings(BaseSettings):
     allowed_upload_extensions: str = ".yaml,.yml"
 
     database_url: str = "postgresql+psycopg://ecoops:ecoops@localhost:5432/ecoops"
+    estimation_period_hours: float = Field(default=730.0, gt=0)
+    cpu_cost_per_vcpu_hour_usd: float = Field(default=0.04, ge=0)
+    memory_cost_per_gb_hour_usd: float = Field(default=0.005, ge=0)
+    cpu_power_watts_per_active_vcpu: float = Field(default=15.0, ge=0)
+    memory_power_watts_per_active_gb: float = Field(default=0.5, ge=0)
+    data_center_pue: float = Field(default=1.4, ge=1)
+    carbon_intensity_gco2_per_kwh: float = Field(default=430.0, ge=0)
+
+    # Phase 8 constraint engine thresholds (documented prototype heuristics).
+    cpu_headroom_threshold: float = Field(default=0.70, ge=0, le=1)
+    memory_headroom_threshold: float = Field(default=0.85, ge=0, le=1)
+    latency_base_ms: float = Field(default=50.0, gt=0)
+    max_users_per_replica: float = Field(default=2000.0, gt=0)
+    traffic_multiplier_low: float = Field(default=0.5, gt=0)
+    traffic_multiplier_medium: float = Field(default=1.0, gt=0)
+    traffic_multiplier_high: float = Field(default=2.0, gt=0)
+    traffic_multiplier_variable: float = Field(default=1.25, gt=0)
+
+    model_dir: Path = PROJECT_ROOT / "ml" / "models"
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -1,0 +1,3 @@
+{"start_time": "300", "end_time": "400", "collection_id": "1", "instance_index": "10", "average_usage": {"cpus": 0.4, "memory": 0.2}, "maximum_usage": {"cpus": 0.8, "memory": 0.4}, "assigned_memory": 0}
+{"start_time": "310", "end_time": "410", "collection_id": "2", "instance_index": "20", "average_usage": {"cpus": 0.05, "memory": 0.02}, "maximum_usage": {"cpus": 0.1, "memory": 0.05}, "assigned_memory": 0}
+{"start_time": "320", "end_time": "420", "collection_id": "9", "instance_index": "99", "average_usage": {"cpus": 0.01, "memory": 0.01}, "maximum_usage": {"cpus": 0.02, "memory": 0.02}, "assigned_memory": 0}

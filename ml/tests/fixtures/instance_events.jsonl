@@ -1,0 +1,4 @@
+{"time": "100", "type": "3", "collection_id": "1", "instance_index": "10", "scheduling_class": "0", "priority": "100", "resource_request": {"cpus": 0.5, "memory": 0.25}}
+{"time": "200", "type": "3", "collection_id": "1", "instance_index": "10", "scheduling_class": "0", "priority": "100", "resource_request": {"cpus": 1.0, "memory": 0.5}}
+{"time": "150", "type": "3", "collection_id": "2", "instance_index": "20", "scheduling_class": "2", "priority": "50", "resource_request": {"cpus": 0.2, "memory": 0.1}}
+{"time": "180", "type": "3", "collection_id": "3", "instance_index": "30", "scheduling_class": "1", "priority": "10"}
