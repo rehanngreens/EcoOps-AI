@@ -1,8 +1,9 @@
-# ML preprocessing
+# ML pipeline
 
 Offline pipeline that turns Google Cluster Workload Traces 2019 into train/test CSVs aligned with the Phase 3 `FeatureVector`.
 
-This phase does **not** train a model and does **not** change the API.
+The preprocessing phase does **not** change the API. Phase 5 adds local model
+training; Phase 6 will connect the saved models to the backend API.
 
 ## Setup
 
@@ -85,6 +86,32 @@ pytest -v ml/tests
 
 Tests use tiny JSONL fixtures, not the 400MB shards.
 
-## Next phase
+## Phase 5: train utilization models
 
-Phase 5 trains a Random Forest on `datasets/processed/train.csv` and saves a model under `ml/models/`.
+After preprocessing has produced `train.csv` and `test.csv`, run this command
+from the repository root:
+
+```bash
+python ml/train_model.py
+```
+
+The script trains separate `RandomForestRegressor` models for CPU and memory
+utilization, evaluates them against the untouched test split, and writes local
+artifacts under `ml/models/`:
+
+```text
+cpu_utilization_model.joblib
+memory_utilization_model.joblib
+metadata.json
+```
+
+`metadata.json` records the exact feature order, row counts, evaluation metrics
+(MAE, RMSE, and R²), and the model limitations. It also records a mean-target
+baseline so model quality is compared against a simple no-feature prediction.
+These generated artifacts are gitignored and must not be committed.
+
+For a quick smoke test with fewer trees:
+
+```bash
+python ml/train_model.py --n-estimators 10
+```

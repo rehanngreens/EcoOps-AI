@@ -11,9 +11,15 @@ TRAIN_FILENAME = "train.csv"
 TEST_FILENAME = "test.csv"
 METADATA_FILENAME = "metadata.json"
 
+MODELS_DIR = PROJECT_ROOT / "ml" / "models"
+CPU_MODEL_FILENAME = "cpu_utilization_model.joblib"
+MEMORY_MODEL_FILENAME = "memory_utilization_model.joblib"
+MODEL_METADATA_FILENAME = "metadata.json"
+
 DEFAULT_MAX_ROWS = 50_000
 TEST_SIZE = 0.2
 RANDOM_STATE = 42
+DEFAULT_N_ESTIMATORS = 100
 
 # Workload fields are not present in the Google trace. Defaults match
 # backend/app/schemas/workload_schema.py so runtime FeatureVector columns align.
