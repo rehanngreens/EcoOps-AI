@@ -1,6 +1,9 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
 
 
 class Settings(BaseSettings):
@@ -17,6 +20,7 @@ class Settings(BaseSettings):
     allowed_upload_extensions: str = ".yaml,.yml"
 
     database_url: str = "postgresql+psycopg://ecoops:ecoops@localhost:5432/ecoops"
+    model_dir: Path = PROJECT_ROOT / "ml" / "models"
 
     model_config = SettingsConfigDict(
         env_file=".env",

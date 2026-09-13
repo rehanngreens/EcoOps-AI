@@ -17,6 +17,8 @@ from sklearn.metrics import mean_absolute_error, r2_score, root_mean_squared_err
 from config import (
     CPU_MODEL_FILENAME,
     DEFAULT_N_ESTIMATORS,
+    DEFAULT_MAX_DEPTH,
+    DEFAULT_MIN_SAMPLES_LEAF,
     MEMORY_MODEL_FILENAME,
     MODEL_METADATA_FILENAME,
     MODELS_DIR,
@@ -51,7 +53,11 @@ def _model(n_estimators: int, random_state: int) -> RandomForestRegressor:
     if n_estimators < 1:
         raise ValueError("n_estimators must be at least 1")
     return RandomForestRegressor(
-        n_estimators=n_estimators, random_state=random_state, n_jobs=-1
+        n_estimators=n_estimators,
+        random_state=random_state,
+        max_depth=DEFAULT_MAX_DEPTH,
+        min_samples_leaf=DEFAULT_MIN_SAMPLES_LEAF,
+        n_jobs=-1,
     )
 
 
@@ -76,10 +82,10 @@ def train_models(
 
     cpu_model = _model(n_estimators, random_state)
     memory_model = _model(n_estimators, random_state)
-    cpu_model.fit(train_features, train_targets["cpu_utilization"])
-    memory_model.fit(train_features, train_targets["memory_utilization"])
-    cpu_predictions = cpu_model.predict(test_features)
-    memory_predictions = memory_model.predict(test_features)
+    cpu_model.fit(train_features.to_numpy(), train_targets["cpu_utilization"])
+    memory_model.fit(train_features.to_numpy(), train_targets["memory_utilization"])
+    cpu_predictions = cpu_model.predict(test_features.to_numpy())
+    memory_predictions = memory_model.predict(test_features.to_numpy())
     cpu_baseline_predictions = np.full(len(test_features), train_targets["cpu_utilization"].mean())
     memory_baseline_predictions = np.full(
         len(test_features), train_targets["memory_utilization"].mean()
@@ -98,6 +104,10 @@ def train_models(
         "train_path": str(train_path),
         "test_path": str(test_path),
         "training_rows": int(len(train_features)),
+        "model_parameters": {
+            "max_depth": DEFAULT_MAX_DEPTH,
+            "min_samples_leaf": DEFAULT_MIN_SAMPLES_LEAF,
+        },
         "test_rows": int(len(test_features)),
         "artifacts": {
             "cpu_model": CPU_MODEL_FILENAME,

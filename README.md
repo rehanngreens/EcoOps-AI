@@ -179,7 +179,7 @@ Keep modules small and independently testable. In particular, parsers, ML code, 
 
 ## Project status
 
-**Design and planning phase.** See [EcoOps-AI project design.md](<EcoOps-AI project design.md>) for the complete architecture, scope, implementation guidance, and success criteria.
+**Phases 1–6 implemented:** Kubernetes parsing, normalized features, dataset preprocessing, utilization-model training, and the prediction API. See [EcoOps-AI project design.md](<EcoOps-AI project design.md>) for the remaining roadmap.
 
 ## License
 

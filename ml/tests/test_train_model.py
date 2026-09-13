@@ -63,4 +63,6 @@ def test_train_models_saves_artifacts_and_metadata(tmp_path: Path) -> None:
     saved_metadata = json.loads((output_dir / "metadata.json").read_text())
     assert saved_metadata["random_state"] == 42
     cpu_model = joblib.load(output_dir / "cpu_utilization_model.joblib")
-    assert len(cpu_model.predict(_dataset(2)[FEATURE_COLUMNS])) == 2
+    assert saved_metadata["model_parameters"]["max_depth"] == 16
+    assert saved_metadata["model_parameters"]["min_samples_leaf"] == 10
+    assert len(cpu_model.predict(_dataset(2)[FEATURE_COLUMNS].to_numpy())) == 2

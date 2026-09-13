@@ -17,13 +17,14 @@ from app.schemas.infrastructure_schema import (
     InfrastructureConfiguration,
     ValidationResponse,
 )
-from app.schemas.unified_schema import (
-    AnalysisFeaturesResponse,
-    AnalyzeResponse,
-)
+from app.schemas.unified_schema import AnalysisFeaturesResponse, AnalyzeResponse
 from app.schemas.workload_schema import WorkloadProfile
-from app.services import analysis_service
+from app.services import analysis_service, prediction_service
 from app.services.feature_service import extract_features
+from app.services.prediction_service import (
+    ModelArtifactsUnavailableError,
+    ModelCompatibilityError,
+)
 
 router = APIRouter(prefix="/api/v1")
 settings = get_settings()
@@ -120,6 +121,13 @@ async def analyze_manifest(
     configuration = _parse_upload(yaml_text)
     workload_profile = _parse_workload(workload)
     features = extract_features(configuration, workload_profile)
+    try:
+        prediction = prediction_service.predict_utilization(features)
+    except (ModelArtifactsUnavailableError, ModelCompatibilityError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
     record = analysis_service.create_analysis(
         db,
         configuration,
@@ -131,6 +139,7 @@ async def analyze_manifest(
         configuration=configuration,
         workload=workload_profile,
         features=features,
+        prediction=prediction,
     )
 
 

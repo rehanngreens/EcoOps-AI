@@ -42,14 +42,23 @@ class FeatureVector(BaseModel):
     users_per_replica: float
 
 
+class UtilizationPrediction(BaseModel):
+    """CPU and memory utilization returned by the trained Phase 5 models."""
+
+    cpu_utilization: float = Field(..., ge=0, le=1)
+    memory_utilization: float = Field(..., ge=0, le=1)
+    model_type: str
+    model_created_at: str | None = None
+
+
 class AnalyzeResponse(BaseModel):
     analysis_id: str
     configuration: InfrastructureConfiguration
     workload: WorkloadProfile
     features: FeatureVector
-
-
+    prediction: UtilizationPrediction
 class AnalysisFeaturesResponse(BaseModel):
+
     analysis_id: str
     workload: WorkloadProfile
     features: FeatureVector

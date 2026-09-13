@@ -20,6 +20,8 @@ DEFAULT_MAX_ROWS = 50_000
 TEST_SIZE = 0.2
 RANDOM_STATE = 42
 DEFAULT_N_ESTIMATORS = 100
+DEFAULT_MAX_DEPTH = 16
+DEFAULT_MIN_SAMPLES_LEAF = 10
 
 # Workload fields are not present in the Google trace. Defaults match
 # backend/app/schemas/workload_schema.py so runtime FeatureVector columns align.
