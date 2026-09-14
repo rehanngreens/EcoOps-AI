@@ -302,6 +302,14 @@ def run_optimization(db: Session, analysis_id: str) -> OptimizeResponse:
             explanation=explanation,
         )
     )
+
+    # Flush the set row BEFORE adding items. The models declare the FK column
+    # without a relationship(), so the unit of work has no dependency between
+    # the two mappers and emits inserts in alphabetical table order — items
+    # first. SQLite (used in tests) does not enforce FKs by default, so this
+    # never surfaced there; PostgreSQL rejects the orphan item insert.
+    db.flush()
+
     for item in items:
         db.add(
             RecommendationItemRecord(
@@ -313,6 +321,7 @@ def run_optimization(db: Session, analysis_id: str) -> OptimizeResponse:
                 reason=item.reason,
             )
         )
+
     db.commit()
 
     optimized_score = score_service.compute_score(

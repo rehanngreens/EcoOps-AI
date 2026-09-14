@@ -182,7 +182,27 @@ Keep modules small and independently testable. In particular, parsers, ML code, 
 
 ## Project status
 
-**Phases 1–10 implemented:** Kubernetes parsing, normalized features, dataset preprocessing, utilization-model training (including a documented synthetic Kubernetes-scale demand component, see `ml/synthetic_augment.py`), prediction API, transparent cost/energy/carbon estimation, the constraint engine (five configurable feasibility checks), the recommendation engine (constraint-gated candidate ranking with persisted results via `POST /analysis/{id}/optimize`), and optimized YAML generation (`GET /analysis/{id}/optimized-config` returns the optimized manifest, a unified diff against the preserved original, and the change list). The sustainability score (`GET /analysis/{id}/score`) is a weighted mean of five normalized components with fully disclosed methodology and configurable weights per design doc §23. Remaining: dashboard (Phase 11), and Terraform/Docker Compose parsers (Phases 12–13). See [EcoOps-AI project design.md](<EcoOps-AI project design.md>) for the roadmap.
+**Phases 1–11 implemented:** Kubernetes parsing, normalized features, dataset preprocessing, utilization-model training (including a documented synthetic Kubernetes-scale demand component, see `ml/synthetic_augment.py`), prediction API, transparent cost/energy/carbon estimation, the constraint engine (five configurable feasibility checks), the recommendation engine (constraint-gated candidate ranking with persisted results via `POST /analysis/{id}/optimize`), optimized YAML generation (`GET /analysis/{id}/optimized-config` returns the optimized manifest, a unified diff against the preserved original, and the change list), the weighted sustainability score (`GET /analysis/{id}/score`, disclosed methodology and configurable weights per design doc §23), and the React dashboard visualizing the full pipeline. Remaining: Terraform/Docker Compose parsers (Phases 12–13). See [EcoOps-AI project design.md](<EcoOps-AI project design.md>) for the roadmap.
+
+## Frontend dashboard (Phase 11)
+
+The React dashboard (Vite + Tailwind + Recharts, in `frontend/`) covers all design-doc §22 sections: sustainability score with grade and component breakdown, cost/energy/carbon estimates, predicted utilization chart, current configuration, problems detected (failed constraint checks), constraint-gated recommendations with savings and a before/after score comparison, and the optimized YAML with colored diff and download. Demo presets for the three bundled manifests make one-click walkthroughs possible.
+
+```bash
+cd frontend
+npm install
+npm run dev        # http://localhost:5173 (proxies /api to the backend)
+```
+
+Run the backend first (default `http://localhost:8000`, override with `BACKEND_PORT` or `VITE_API_URL`). The dev server must stay on port 5173 (or 3000) because those are the backend's CORS allow-listed origins.
+
+## Run the whole stack with Docker
+
+```bash
+docker compose up -d --build
+```
+
+Starts Postgres, the FastAPI backend (port 8000), and the dashboard as a static nginx container (port 5173) that proxies `/api` to the backend — no CORS involved in this mode. Open http://localhost:5173. Trained model artifacts (`ml/models/`) must exist on the host before `up` (they are volume-mounted read-only; see the ML README to train them).
 
 ## License
 
