@@ -21,6 +21,7 @@ from app.models.recommendation import (
 from app.schemas.infrastructure_schema import InfrastructureConfiguration
 from app.schemas.recommendation_schema import (
     EstimationTotals,
+    OptimizationScores,
     OptimizeResponse,
     RejectedCandidate,
     RecommendationItem,
@@ -29,7 +30,7 @@ from app.schemas.recommendation_schema import (
     RecommendationTotals,
 )
 from app.schemas.unified_schema import SustainabilityEstimation, UtilizationPrediction
-from app.services import analysis_service, candidate_service, constraint_service, estimation_service, prediction_service
+from app.services import analysis_service, candidate_service, constraint_service, estimation_service, prediction_service, score_service
 from app.services.candidate_service import Candidate
 from app.services.feature_service import extract_features
 
@@ -41,9 +42,42 @@ DISCLAIMER = (
     "suggestion before deployment."
 )
 
-# Predicted-utilization headroom guard: reject candidates whose predicted
-# utilization exceeds the baseline's by more than this tolerance.
-HEADROOM_TOLERANCE = 0.05
+# Predicted-utilization guard. Historical note: while the Phase 5 model was
+# allocation-insensitive, the veto compared against baseline + tolerance and
+# every candidate tied the baseline, so it never fired. Now that the model
+# responds to allocation, any real scale-down raises predicted utilization —
+# comparing against the baseline would reject every legitimate candidate.
+# The veto therefore rejects only candidates predicted to saturate a
+# resource outright; the constraint engine (headroom/latency/capacity
+# checks) remains the authoritative feasibility gate.
+SATURATION_LIMIT = 0.95
+
+
+def _scores_for(
+    configuration: InfrastructureConfiguration,
+    workload,
+) -> tuple:
+    """Compute the sustainability score for one configuration.
+
+    Score components are deterministic given the configuration, workload,
+    and current model artifacts, so they are computed on demand rather than
+    persisted — always consistent with the score endpoint, no migration.
+    Returns (score, features, prediction, estimation) so callers can reuse
+    the pipeline outputs.
+    """
+    features = extract_features(configuration, workload)
+    prediction = prediction_service.predict_utilization(features)
+    estimation = estimation_service.estimate_sustainability(features, prediction)
+    constraints = constraint_service.evaluate_constraints(features, prediction)
+    score = score_service.compute_score(
+        configuration=configuration,
+        workload=workload,
+        features=features,
+        prediction=prediction,
+        estimation=estimation,
+        constraints=constraints,
+    )
+    return score, features, prediction, estimation
 
 
 def _summary(configuration: InfrastructureConfiguration) -> str:
@@ -76,17 +110,17 @@ def _evaluate_candidate(
     features = extract_features(candidate.configuration, workload)
     prediction = prediction_service.predict_utilization(features)
 
-    # Headroom veto: never propose a candidate predicted to run hotter than
-    # the baseline beyond a small tolerance. With the current flat model this
-    # rarely triggers; with a retrained model it prevents unsafe cuts.
+    # Saturation veto: never propose a candidate predicted to run a resource
+    # at >= 95% utilization. The five constraint checks remain the primary
+    # feasibility gate; this veto only blocks candidates the checks might
+    # tolerate but no engineer should ship.
     if (
-        prediction.cpu_utilization > baseline_cpu + HEADROOM_TOLERANCE
-        or prediction.memory_utilization > baseline_memory + HEADROOM_TOLERANCE
+        prediction.cpu_utilization >= SATURATION_LIMIT
+        or prediction.memory_utilization >= SATURATION_LIMIT
     ):
         return False, (
             f"predicted utilization (cpu {prediction.cpu_utilization:.1%}, "
-            f"memory {prediction.memory_utilization:.1%}) would exceed the "
-            f"baseline's (cpu {baseline_cpu:.1%}, memory {baseline_memory:.1%})"
+            f"memory {prediction.memory_utilization:.1%}) would saturate a resource"
         ), None, prediction
 
     estimation = estimation_service.estimate_sustainability(features, prediction)
@@ -173,10 +207,8 @@ def run_optimization(db: Session, analysis_id: str) -> OptimizeResponse:
     baseline_configuration = analysis_service.to_configuration(record)
     workload = analysis_service.to_workload(record)
 
-    baseline_features = extract_features(baseline_configuration, workload)
-    baseline_prediction = prediction_service.predict_utilization(baseline_features)
-    baseline_estimation = estimation_service.estimate_sustainability(
-        baseline_features, baseline_prediction
+    baseline_score, baseline_features, baseline_prediction, baseline_estimation = _scores_for(
+        baseline_configuration, workload
     )
 
     rejected: list[RejectedCandidate] = []
@@ -232,6 +264,7 @@ def run_optimization(db: Session, analysis_id: str) -> OptimizeResponse:
                 explanation=explanation,
                 disclaimer=DISCLAIMER,
             ),
+            scores=OptimizationScores(baseline=baseline_score),
         )
 
     best, best_estimation, best_prediction = passing[0]
@@ -282,6 +315,22 @@ def run_optimization(db: Session, analysis_id: str) -> OptimizeResponse:
         )
     db.commit()
 
+    optimized_score = score_service.compute_score(
+        configuration=optimized_configuration,
+        workload=workload,
+        features=extract_features(optimized_configuration, workload),
+        prediction=best_prediction,
+        estimation=best_estimation,
+        constraints=constraint_service.evaluate_constraints(
+            extract_features(optimized_configuration, workload), best_prediction
+        ),
+    )
+    scores = OptimizationScores(
+        baseline=baseline_score,
+        optimized=optimized_score,
+        improvement=round(optimized_score.score - baseline_score.score, 4),
+    )
+
     return OptimizeResponse(
         analysis_id=record.id,
         recommendation_set=RecommendationSet(
@@ -294,6 +343,7 @@ def run_optimization(db: Session, analysis_id: str) -> OptimizeResponse:
             explanation=explanation,
             disclaimer=DISCLAIMER,
         ),
+        scores=scores,
     )
 
 
@@ -334,6 +384,27 @@ def get_recommendations(db: Session, analysis_id: str) -> OptimizeResponse | Non
             ),
         )
 
+    baseline_configuration = InfrastructureConfiguration.model_validate(
+        stored.baseline_configuration
+    )
+    baseline_score, _, _, _ = _scores_for(
+        baseline_configuration, analysis_service.to_workload(record)
+    )
+
+    scores = OptimizationScores(baseline=baseline_score)
+    if stored.optimized_configuration is not None:
+        optimized_configuration = InfrastructureConfiguration.model_validate(
+            stored.optimized_configuration
+        )
+        optimized_score, _, _, _ = _scores_for(
+            optimized_configuration, analysis_service.to_workload(record)
+        )
+        scores = OptimizationScores(
+            baseline=baseline_score,
+            optimized=optimized_score,
+            improvement=round(optimized_score.score - baseline_score.score, 4),
+        )
+
     return OptimizeResponse(
         analysis_id=stored.analysis_id,
         recommendation_set=RecommendationSet(
@@ -356,4 +427,5 @@ def get_recommendations(db: Session, analysis_id: str) -> OptimizeResponse | Non
             explanation=stored.explanation,
             disclaimer=DISCLAIMER,
         ),
+        scores=scores,
     )

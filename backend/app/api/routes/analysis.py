@@ -19,6 +19,7 @@ from app.schemas.infrastructure_schema import (
 )
 from app.schemas.optimization_schema import OptimizedConfigResponse
 from app.schemas.recommendation_schema import AnalysisRecommendationsResponse, OptimizeResponse
+from app.schemas.score_schema import AnalysisScoreResponse
 from app.schemas.unified_schema import (
     AnalysisConstraintsResponse,
     AnalysisFeaturesResponse,
@@ -32,6 +33,7 @@ from app.services import (
     estimation_service,
     prediction_service,
     recommendation_service,
+    score_service,
 )
 from app.services.config_generator_service import ConfigGenerationError
 from app.services.feature_service import extract_features
@@ -249,6 +251,58 @@ def get_analysis_constraints(
     )
 
 
+@router.get(
+    "/analysis/{analysis_id}/score",
+    response_model=AnalysisScoreResponse,
+)
+def get_analysis_score(
+    analysis_id: str,
+    db: Session = Depends(get_db),
+) -> AnalysisScoreResponse:
+    """Compute the weighted sustainability score for a stored analysis.
+
+    Methodology, component breakdown, and disclaimer are included so the
+    dashboard never presents the score as an authoritative benchmark
+    (design doc section 23).
+    """
+    record = analysis_service.get_analysis(db, analysis_id)
+    if record is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Analysis '{analysis_id}' not found",
+        )
+
+    features = analysis_service.to_features(record)
+    if features is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Features for analysis '{analysis_id}' not found",
+        )
+
+    try:
+        prediction = prediction_service.predict_utilization(features)
+    except (ModelArtifactsUnavailableError, ModelCompatibilityError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+    configuration = analysis_service.to_configuration(record)
+    workload = analysis_service.to_workload(record)
+    estimation = estimation_service.estimate_sustainability(features, prediction)
+    constraints = constraint_service.evaluate_constraints(features, prediction)
+
+    score = score_service.compute_score(
+        configuration=configuration,
+        workload=workload,
+        features=features,
+        prediction=prediction,
+        estimation=estimation,
+        constraints=constraints,
+    )
+    return AnalysisScoreResponse(analysis_id=record.id, score=score)
+
+
 @router.post(
     "/analysis/{analysis_id}/optimize",
     response_model=OptimizeResponse,
@@ -299,6 +353,7 @@ def get_analysis_recommendations(
     return AnalysisRecommendationsResponse(
         analysis_id=stored.analysis_id,
         recommendation_set=stored.recommendation_set,
+        scores=stored.scores,
     )
 
 

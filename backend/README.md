@@ -66,9 +66,10 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 | `GET` | `/api/v1/analysis/{id}/configuration` | Retrieve a stored configuration |
 | `GET` | `/api/v1/analysis/{id}/features` | Retrieve stored workload and ML-ready features |
 | `GET` | `/api/v1/analysis/{id}/constraints` | Retrieve the constraint feasibility evaluation |
-| `POST` | `/api/v1/analysis/{id}/optimize` | Generate and persist scale-down recommendations |
+| `POST` | `/api/v1/analysis/{id}/optimize` | Generate and persist scale-down recommendations (includes baseline/optimized sustainability scores) |
 | `GET` | `/api/v1/analysis/{id}/recommendations` | Retrieve the stored recommendation set |
 | `GET` | `/api/v1/analysis/{id}/optimized-config` | Retrieve the optimized manifest with diff and change list |
+| `GET` | `/api/v1/analysis/{id}/score` | Compute the weighted sustainability score (methodology and component breakdown included) |
 
 Example:
 

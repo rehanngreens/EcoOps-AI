@@ -72,3 +72,33 @@ def test_features_helper_builds_valid_vector() -> None:
     features = _features()
     assert features.total_cpu_capacity == 2.0
     assert features.replicas == 2
+
+
+def test_scores_for_includes_all_components_and_weights() -> None:
+    from app.schemas.infrastructure_schema import InfrastructureConfiguration
+    from app.schemas.workload_schema import WorkloadProfile
+    from app.services import recommendation_service
+
+    configuration = InfrastructureConfiguration.model_validate(
+        {
+            "source_type": "kubernetes",
+            "application": "api-backend",
+            "replicas": 2,
+            "cpu_request": 1.0,
+            "cpu_limit": 1.0,
+            "memory_request_gb": 2.0,
+            "memory_limit_gb": 2.0,
+            "autoscaling_enabled": False,
+        }
+    )
+    workload = WorkloadProfile(application_type="rest-api", expected_users=1000)
+
+    score, features, prediction, estimation = recommendation_service._scores_for(
+        configuration, workload
+    )
+
+    assert len(score.components) == 5
+    assert sum(component.weight for component in score.components) == pytest.approx(1.0)
+    assert features.total_cpu_capacity == 2.0
+    assert 0.0 <= prediction.cpu_utilization <= 1.0
+    assert estimation.estimated_cost_usd >= 0

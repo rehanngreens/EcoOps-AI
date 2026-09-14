@@ -134,9 +134,10 @@ Implemented endpoints are marked below; the interactive FastAPI docs are also av
 | `GET` | `/api/v1/analysis/{id}/configuration` | Retrieve stored normalized configuration | Implemented |
 | `GET` | `/api/v1/analysis/{id}/features` | Retrieve stored workload profile and ML-ready features | Implemented |
 | `GET` | `/api/v1/analysis/{id}/constraints` | Retrieve the constraint feasibility evaluation (recomputed from stored analysis) | Implemented |
-| `POST` | `/api/v1/analysis/{id}/optimize` | Generate, evaluate, rank, and persist scale-down recommendations | Implemented |
+| `POST` | `/api/v1/analysis/{id}/optimize` | Generate, evaluate, rank, and persist scale-down recommendations; returns baseline and optimized sustainability scores with improvement | Implemented |
 | `GET` | `/api/v1/analysis/{id}/recommendations` | Retrieve the persisted recommendation set | Implemented |
 | `GET` | `/api/v1/analysis/{id}/optimized-config` | Retrieve the optimized manifest, a diff against the original, and the change list | Implemented |
+| `GET` | `/api/v1/analysis/{id}/score` | Compute the weighted sustainability score with disclosed methodology and configurable weights | Implemented |
 | `GET` | `/api/v1/analysis/{id}` | Retrieve an aggregate analysis result | Planned |
 
 ## Planned repository layout
@@ -181,7 +182,7 @@ Keep modules small and independently testable. In particular, parsers, ML code, 
 
 ## Project status
 
-**Phases 1–9 implemented:** Kubernetes parsing, normalized features, dataset preprocessing, utilization-model training (including a documented synthetic Kubernetes-scale demand component, see `ml/synthetic_augment.py`), prediction API, transparent cost/energy/carbon estimation, the constraint engine (five configurable feasibility checks), and the recommendation engine (constraint-gated candidate ranking with persisted results via `POST /analysis/{id}/optimize`). Phase 10 adds optimized YAML generation (`GET /analysis/{id}/optimized-config` returns the optimized manifest, a unified diff against the preserved original, and the change list). Remaining: dashboard (Phase 11), and Terraform/Docker Compose parsers (Phases 12–13). See [EcoOps-AI project design.md](<EcoOps-AI project design.md>) for the roadmap.
+**Phases 1–10 implemented:** Kubernetes parsing, normalized features, dataset preprocessing, utilization-model training (including a documented synthetic Kubernetes-scale demand component, see `ml/synthetic_augment.py`), prediction API, transparent cost/energy/carbon estimation, the constraint engine (five configurable feasibility checks), the recommendation engine (constraint-gated candidate ranking with persisted results via `POST /analysis/{id}/optimize`), and optimized YAML generation (`GET /analysis/{id}/optimized-config` returns the optimized manifest, a unified diff against the preserved original, and the change list). The sustainability score (`GET /analysis/{id}/score`) is a weighted mean of five normalized components with fully disclosed methodology and configurable weights per design doc §23. Remaining: dashboard (Phase 11), and Terraform/Docker Compose parsers (Phases 12–13). See [EcoOps-AI project design.md](<EcoOps-AI project design.md>) for the roadmap.
 
 ## License
 

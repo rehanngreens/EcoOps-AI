@@ -294,9 +294,18 @@ def test_optimize_and_get_recommendations_end_to_end() -> None:
     assert "advisory prototype estimates" in recommendation_set["disclaimer"]
     assert recommendation_set["baseline_configuration"]["replicas"] == 8
 
+    scores = optimize_data["scores"]
+    assert 0.0 <= scores["baseline"]["score"] <= 1.0
+    assert len(scores["baseline"]["components"]) == 5
+
     if recommendation_set["status"] == "recommended":
         assert recommendation_set["optimized_configuration"] is not None
         assert recommendation_set["optimized_configuration"] != recommendation_set["baseline_configuration"]
+        assert scores["optimized"] is not None
+        assert scores["improvement"] is not None
+        assert scores["improvement"] == pytest.approx(
+            scores["optimized"]["score"] - scores["baseline"]["score"], abs=1e-4
+        )
         totals = recommendation_set["totals"]
         assert totals["cost_reduction_usd"] >= 0
         assert totals["optimized"]["estimated_cost_usd"] <= totals["baseline"]["estimated_cost_usd"]
@@ -313,6 +322,8 @@ def test_optimize_and_get_recommendations_end_to_end() -> None:
     else:
         assert recommendation_set["optimized_configuration"] is None
         assert len(recommendation_set["rejected_candidates"]) >= 1
+        assert scores["optimized"] is None
+        assert scores["improvement"] is None
 
     stored_response = client.get(f"/api/v1/analysis/{analysis_id}/recommendations")
     assert stored_response.status_code == 200
@@ -320,6 +331,11 @@ def test_optimize_and_get_recommendations_end_to_end() -> None:
     assert stored_data["analysis_id"] == analysis_id
     assert stored_data["recommendation_set"]["status"] == recommendation_set["status"]
     assert stored_data["recommendation_set"]["items"] == recommendation_set["items"]
+    stored_scores = stored_data["scores"]
+    assert stored_scores["baseline"]["score"] == scores["baseline"]["score"]
+    if recommendation_set["status"] == "recommended":
+        assert stored_scores["optimized"]["score"] == scores["optimized"]["score"]
+        assert stored_scores["improvement"] == scores["improvement"]
 
 
 def test_recommendations_before_optimize_returns_404() -> None:
@@ -436,5 +452,41 @@ def test_optimized_config_when_no_recommendation_accepted_returns_404() -> None:
 
 def test_optimized_config_missing_analysis_returns_404() -> None:
     response = client.get("/api/v1/analysis/nonexistent-id/optimized-config")
+
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"]
+
+
+def test_score_endpoint_returns_weighted_components() -> None:
+    analyze_response = client.post(
+        "/api/v1/analyze",
+        files={
+            "file": (
+                "deployment.yaml",
+                load_manifest("deployment-well-provisioned.yaml"),
+                "application/x-yaml",
+            )
+        },
+    )
+    assert analyze_response.status_code == 201
+    analysis_id = analyze_response.json()["analysis_id"]
+
+    response = client.get(f"/api/v1/analysis/{analysis_id}/score")
+
+    assert response.status_code == 200
+    data = response.json()["score"]
+    assert 0.0 <= data["score"] <= 1.0
+    assert data["grade"] in {"A", "B", "C", "D", "F"}
+    assert len(data["components"]) == 5
+    assert sum(c["weight"] for c in data["components"]) == pytest.approx(1.0)
+    assert "weighted" in data["methodology"].lower()
+    assert data["disclaimer"]
+
+
+def test_score_endpoint_missing_analysis_returns_404() -> None:
+    response = client.get("/api/v1/analysis/nonexistent-id/score")
+
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"]
 
     assert response.status_code == 404

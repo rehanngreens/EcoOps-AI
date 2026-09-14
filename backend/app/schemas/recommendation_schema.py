@@ -2,6 +2,8 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
+from app.schemas.score_schema import SustainabilityScore
+
 
 class RecommendationStatus(str, Enum):
     """Outcome of one optimization run."""
@@ -57,11 +59,30 @@ class RecommendationSet(BaseModel):
     disclaimer: str
 
 
+class OptimizationScores(BaseModel):
+    """Sustainability score before and after the accepted recommendation.
+
+    `optimized` is None when no candidate was accepted — the dashboard
+    should then show only the baseline score.
+    """
+
+    baseline: SustainabilityScore
+    optimized: SustainabilityScore | None = None
+    improvement: float | None = Field(
+        default=None,
+        ge=-1.0,
+        le=1.0,
+        description="optimized score minus baseline score; positive means the recommendation improves sustainability",
+    )
+
+
 class OptimizeResponse(BaseModel):
     analysis_id: str
     recommendation_set: RecommendationSet
+    scores: OptimizationScores
 
 
 class AnalysisRecommendationsResponse(BaseModel):
     analysis_id: str
     recommendation_set: RecommendationSet
+    scores: OptimizationScores
