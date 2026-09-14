@@ -1,6 +1,5 @@
 import { useState } from "react";
 import type { WorkloadProfile } from "../types/api";
-import type { DemoPreset } from "../services/apiClient";
 import { UploadPanel } from "../components/UploadPanel";
 import { ErrorBanner, Spinner } from "../components/ui/primitives";
 import { analyzeManifest } from "../services/apiClient";
@@ -10,11 +9,11 @@ export function UploadPage({ onAnalyzed }: { onAnalyzed: (analysis: AnalyzeRespo
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const analyze = async (yaml: string, workload: DemoPreset["workload"] | null) => {
+  const analyze = async (yaml: string, workload: WorkloadProfile) => {
     setBusy(true);
     setError(null);
     try {
-      const analysis = await analyzeManifest(yaml, workload as WorkloadProfile | null);
+      const analysis = await analyzeManifest(yaml, workload);
       onAnalyzed(analysis);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Analysis failed");
