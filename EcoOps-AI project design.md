@@ -1,5 +1,20 @@
 # EcoOps AI
 
+## Design Document Changelog (Two-Operating-Mode Revision)
+
+Revision 2 of this document adds a second operating mode without invalidating any completed work.
+
+**STATUS: Phases 1–11 of the implementation roadmap (Section 31) are COMPLETE and verified.** The following sections are affected by this revision: 2, 3, 4, 5, 6, 7, 8, 18, 21, 22, 23, 25, 26, 27, 28, 30, 31, 32, 33, 34, 38, 40, 43, and new Section 44. All other sections are unchanged and remain fully in force.
+
+**NEW REQUIREMENT (Revision 2):** EcoOps AI must support TWO operating modes:
+
+- **MODE A — Existing IaC Analysis** (already implemented through Phase 11): user provides Terraform / Kubernetes / Docker Compose plus workload characteristics; the system analyzes, predicts, estimates, checks constraints, recommends, and generates an optimized copy of the original IaC. The original IaC is NEVER silently overwritten.
+- **MODE B — Workload-to-Infrastructure Generation** (new, Phases 14–17): user provides only workload requirements through a frontend form (no IaC knowledge needed); the system normalizes requirements, estimates resource requirements, generates and evaluates candidate infrastructures through the SAME ML / estimation / constraint pipeline used by Mode A, ranks candidates, and generates valid IaC (Terraform, Kubernetes, Docker Compose, Terraform+Kubernetes, or a rule-based "Let EcoOps AI choose" target) for user review. Nothing is ever deployed automatically.
+
+**Revised roadmap mapping:** Phases 1–13 keep their numbers and intent (12: Terraform parser, 13: Docker Compose parser — both still pending). NEW Phases 14–17 deliver Mode B. Old Phases 14–17 (integration, testing, Dockerization, AWS deployment) are renumbered to 18–21 with unchanged content. No completed phase is renumbered or rewritten.
+
+**Implementation philosophy for Mode B:** deterministic templates and rules, reuse of every existing module, no LLM code generation, no new microservices, no autonomous agents. Details in Section 44.
+
 ## Project Type
 
 EcoOps AI is a final-year B.Tech Computer Science Engineering main project.
@@ -101,6 +116,13 @@ The main objective is:
 
 The system should also generate an optimized infrastructure configuration for engineer review.
 
+UPDATED (Revision 2) — the objective now has two equally first-class paths:
+
+1. **Analyze an existing IaC configuration** (Mode A) — the original objective above, already implemented.
+2. **Design and generate an optimized infrastructure configuration from workload requirements** (Mode B) — same analysis and optimization machinery, applied to candidate infrastructures the system itself proposes, producing generated IaC for engineer review.
+
+Both paths are decision support. Neither deploys anything.
+
 --------------------------------------------------
 # 3. PRIMARY USER
 --------------------------------------------------
@@ -118,9 +140,20 @@ The user provides:
 
 EcoOps AI analyzes both.
 
+UPDATED (Revision 2) — two user types, corresponding to the two operating modes:
+
+- **Mode A user:** an engineer who ALREADY HAS an infrastructure configuration (Terraform, Kubernetes, or Docker Compose) and wants it reviewed and optimized before deployment. This user understands IaC.
+- **Mode B user:** an engineer (or developer, or student) who understands their APPLICATION and its cloud requirements but does NOT necessarily know Kubernetes or Terraform syntax. This user describes the workload through a form and selects a generation target; EcoOps AI designs candidate infrastructures, evaluates them, and generates the IaC for review.
+
+The Mode B experience must never require the user to read or write IaC syntax. IaC is an OUTPUT for this user, not an input.
+
 --------------------------------------------------
 # 4. USER INPUT
 --------------------------------------------------
+
+UPDATED (Revision 2) — user input depends on the operating mode.
+
+## Mode A input — Existing IaC analysis (implemented)
 
 The main user input is Infrastructure as Code.
 
@@ -129,6 +162,51 @@ Supported formats:
 1. Terraform (.tf)
 2. Kubernetes YAML manifests (.yaml / .yml)
 3. Docker Compose (.yaml / .yml)
+
+The user uploads the IaC file AND provides a workload profile (Section 5). This is the implemented, verified flow.
+
+## Mode B input — Workload-only generation (new)
+
+The user does NOT provide an IaC file. The user describes the application workload through a simple frontend form:
+
+- Application type:
+  - Web application
+  - E-commerce
+  - REST API
+  - Database
+  - Machine learning
+  - AI inference
+  - Streaming
+  - Batch processing
+  - Microservices
+- Expected users: predefined ranges (100 / 1,000 / 10,000 / 100,000) plus a custom value
+- Average traffic / requests per second (custom value)
+- Peak traffic / requests per second (custom value)
+- Traffic pattern:
+  - Low
+  - Medium
+  - High
+  - Variable
+  - Bursty
+- Maximum acceptable latency (ms)
+- Availability requirement (%)
+- Storage requirement (GB)
+- Autoscaling requirement (yes / no)
+- Performance priority (low / medium / high)
+- Cost priority (low / medium / high)
+- Sustainability priority (low / medium / high)
+
+The user also selects the **IaC generation target**:
+
+- Terraform
+- Kubernetes
+- Docker Compose
+- Terraform + Kubernetes
+- Let EcoOps AI choose
+
+If "Let EcoOps AI choose" is selected, the target is chosen by EXPLICIT, DOCUMENTED RULES based on the workload requirements and deployment requirements (see Section 44.4). Do NOT make arbitrary claims that an LLM magically knows the universally best technology — there is no LLM in this decision path.
+
+Mode B users never see IaC syntax on the input side. IaC appears only as generated output they can preview, review, and download.
 
 Examples:
 
@@ -177,6 +255,13 @@ Infrastructure alone is not sufficient to determine the correct resource require
 
 Therefore EcoOps AI should optionally collect workload characteristics.
 
+UPDATED (Revision 2) — the workload profile is shared by both modes. It is defined in TWO VERSIONS:
+
+- **WorkloadProfile v1 (implemented, Phase 3):** application type, expected users, traffic level, maximum acceptable latency, availability target. Mode A uses v1 and is unaffected by this revision.
+- **WorkloadProfile v2 (new, Phase 14):** extends v1 with the Mode B fields from Section 4 — average RPS, peak RPS, traffic pattern (adds "bursty"), storage requirement, autoscaling requirement, performance priority, cost priority, sustainability priority. All v2 fields are OPTIONAL with documented defaults, so existing Mode A requests and the v1-based ML feature pipeline continue to work unchanged.
+
+Both modes produce the SAME WorkloadProfile object, which feeds the SAME feature extraction and ML prediction pipeline. Mode B simply always supplies v2 values (its form requires them); Mode A may supply v1 only.
+
 Example:
 
 Application type:
@@ -202,6 +287,7 @@ Traffic level:
 - Medium
 - High
 - Variable
+- Bursty (NEW in v2)
 
 Performance requirements:
 
@@ -212,6 +298,8 @@ Availability requirement:
 e.g. 99.9%
 
 These values become part of the feature set and are used to make recommendations more context-aware.
+
+NEW (v2): average RPS, peak RPS, storage requirement, autoscaling requirement, and the three priorities (performance / cost / sustainability) become inputs to the Mode B requirement engine and candidate-ranking objective (Section 44). The three priorities set the WEIGHTS used to rank candidate configurations; they never override hard constraint checks.
 
 IMPORTANT:
 
@@ -231,6 +319,10 @@ Recommendations should consider:
 --------------------------------------------------
 # 6. HIGH LEVEL SYSTEM WORKFLOW
 --------------------------------------------------
+
+UPDATED (Revision 2) — the system exposes TWO workflows, one per operating mode. Both reuse the same central pipeline (parsing where applicable, normalization, feature extraction, ML prediction, estimation, constraint engine).
+
+## Workflow A — Existing IaC (implemented)
 
 Complete workflow:
 
@@ -322,6 +414,65 @@ DASHBOARD
   +---- Optimized configuration
   +---- Explanation
 
+## Workflow B — Workload Only (new, Phases 14–17)
+
+USER
+  |
+  | Describe workload requirements in a form
+  | + select IaC generation target
+  v
+FRONTEND (no IaC syntax shown to the user)
+  |
+  v
+BACKEND API  (POST /api/v1/generate)
+  |
+  v
+WORKLOAD REQUIREMENT ENGINE (normalize + validate requirements)
+  |
+  v
+RESOURCE REQUIREMENT ESTIMATION (deterministic rules, Section 44)
+  |
+  v
+TARGET SELECTION (only if "Let EcoOps AI choose"; explicit rules, Section 44.4)
+  |
+  v
+CANDIDATE INFRASTRUCTURE GENERATOR (sizing + replica + autoscaling variants)
+  |
+  v
+FOR EACH CANDIDATE — the SAME pipeline as Workflow A:
+  |
+  +---- Normalized infrastructure representation
+  +---- FEATURE EXTRACTION
+  +---- ML PREDICTION ENGINE (CPU / memory utilization)
+  +---- ENERGY ESTIMATION
+  +---- CARBON ESTIMATION
+  +---- COST ESTIMATION
+  +---- CONSTRAINT ENGINE (reject violating candidates)
+  +---- SUSTAINABILITY SCORE (per candidate)
+  |
+  v
+CANDIDATE RANKING (weighted objective from user priorities)
+  |
+  v
+BEST ACCEPTABLE INFRASTRUCTURE
+  |
+  v
+EXPLAINABILITY MODULE (why this configuration)
+  |
+  v
+IaC GENERATION ENGINE (deterministic templates → Terraform / K8s / Compose)
+  |
+  v
+VALIDATION (generated IaC must round-trip through the same parsers as Workflow A)
+  |
+  v
+IMPACT SUMMARY (cost / energy / carbon / score of the selected candidate)
+  |
+  v
+USER REVIEW (preview → download; nothing is deployed)
+
+Rule: Workflow B must NOT minimize any single dimension. Candidate ranking balances performance, availability, resource utilization, cost, energy, carbon, and the stated workload requirements, under hard constraint checks (Section 18).
+
 --------------------------------------------------
 # 7. CORE ARCHITECTURE
 --------------------------------------------------
@@ -340,6 +491,15 @@ The system should contain these major modules:
 10. Database
 11. Testing
 12. Optional cloud deployment
+
+UPDATED (Revision 2) — Mode B adds the MINIMUM set of new modules; everything else above is REUSED unchanged by both workflows:
+
+1. Workload Requirement Engine (new) — normalizes and validates workload requirements, computes resource requirements
+2. Candidate Infrastructure Generator (new) — produces a small set of candidate normalized configurations
+3. IaC Generation Engine (new) — deterministic templates that emit Terraform / Kubernetes / Docker Compose
+4. Target Selection logic (new, small) — explicit rules for "Let EcoOps AI choose"
+
+Modules 1–4 are backend services in the existing FastAPI app. They call the EXISTING feature extraction, ML prediction, estimation, constraint, and scoring services for every candidate. Do NOT create a separate optimization system, a separate API service, or a separate database for Mode B. See Section 44 for the design of these modules.
 
 --------------------------------------------------
 # 8. CONFIGURATION PARSER
@@ -380,6 +540,8 @@ Example normalized representation:
 The exact schema can evolve.
 
 Do not create separate incompatible schemas for each parser.
+
+NEW (Revision 2): generated IaC (Workflow B) must use this SAME normalized representation as its source. The IaC Generation Engine renders from the normalized schema, and every generated artifact is validated by parsing it back through the parser for its target format and comparing the resulting normalized configuration with the selected candidate (round-trip check, Section 44.6).
 
 --------------------------------------------------
 # 9. TERRAFORM PARSER
@@ -704,6 +866,8 @@ Check constraints
             v
    Best acceptable configuration
 
+NEW (Revision 2): Workflow B reuses this EXACT loop unchanged — except the candidate configurations come from the Candidate Infrastructure Generator (Section 44.2) instead of the recommendation engine, and there is no "current configuration" to compare against. Constraint failures are recorded and surfaced as explanations; a candidate that violates an important constraint is never selectable, regardless of its ranking score.
+
 --------------------------------------------------
 # 19. RECOMMENDATION ENGINE
 --------------------------------------------------
@@ -816,9 +980,45 @@ Allow the user to:
 - preview diff
 - download optimized file
 
+NEW (Revision 2) — IaC generation for Mode B:
+
+Workflow B has no original file. The IaC Generation Engine produces a NEW configuration artifact from the selected candidate's normalized representation, using deterministic templates (one template set per target: Terraform, Kubernetes, Docker Compose, Terraform+Kubernetes).
+
+Generation rules:
+
+1. Templates are deterministic and readable — no LLM-generated IaC, no shell-outs, no execution.
+2. Every generated artifact is validated by a round-trip parse through the parser of its target format (Section 44.6). If the round-trip check fails, generation fails with an error; nothing invalid is ever shown to the user.
+3. Generated IaC is stored SEPARATELY as new output and clearly labeled "Generated" in the UI and API. It is never mixed with, or presented as a modification of, any user-uploaded file.
+4. Generated IaC is never deployed, applied, or executed by the system (Section 29 applies fully to Mode B).
+5. The user can preview, review, and download the generated file(s). Deployment remains a manual human action, exactly as in Mode A.
+
 --------------------------------------------------
 # 22. DASHBOARD
 --------------------------------------------------
+
+UPDATED (Revision 2) — the dashboard exposes TWO clear entry points on its landing page:
+
+# EcoOps AI
+
+### What do you want to do?
+
+**[ Analyze Existing Infrastructure ]**   **[ Create Sustainable Infrastructure ]**
+
+## Entry point 1 — Analyze Existing Infrastructure (implemented, Phase 11)
+
+User uploads:
+
+- Terraform
+- Kubernetes
+- Docker Compose
+
+Then enters workload information (the workload form already implemented).
+
+## Entry point 2 — Create Sustainable Infrastructure (new, Phase 17)
+
+User enters workload requirements (Section 4, Mode B form) and selects the desired IaC target (including "Let EcoOps AI choose"). The form uses plain language, sensible defaults, and helper text. The second workflow must NOT force the user to understand IaC syntax — this is important because the application should be usable by someone who understands application/cloud requirements but does not necessarily know Kubernetes or Terraform syntax.
+
+## Mode A result view (implemented)
 
 The dashboard should contain:
 
@@ -874,6 +1074,45 @@ Performance constraints
 
 Show optimized Terraform / Kubernetes / Docker Compose.
 
+## Mode B result view (new)
+
+After generation, show:
+
+### Recommended Infrastructure
+
+- Architecture summary (plain-language description of the selected design)
+- CPU
+- Memory
+- Replica count
+- Storage
+- Autoscaling
+- Cloud provider / region where applicable
+
+### Estimated Impact
+
+- Estimated cost
+- Estimated energy consumption
+- Estimated carbon impact
+- Sustainability score (with methodology disclosure, same score as Mode A)
+
+All values labeled as estimates.
+
+### Why this configuration?
+
+An explainable summary: which constraints were checked and passed, which candidates were rejected and why, what the ranking objective optimized for given the user's priorities, and the prediction basis for the selected candidate. Rejected candidates and their rejection reasons MUST be visible.
+
+### Generated Configuration
+
+Show the generated:
+
+- Terraform, and/or
+- Kubernetes YAML, and/or
+- Docker Compose
+
+depending on the selected target. Syntax-highlighted, with a per-target download button and a preview/review step before download. Do NOT automatically deploy anything; display an explicit notice that deployment is manual.
+
+If "Let EcoOps AI choose" was used, display WHICH target was selected and the rule that triggered the selection.
+
 --------------------------------------------------
 # 23. SUSTAINABILITY SCORE
 --------------------------------------------------
@@ -897,6 +1136,8 @@ Example:
 Sustainability score = weighted normalized metrics.
 
 The weights should be configurable.
+
+NEW (Revision 2): the same score is computed for EVERY Mode B candidate configuration, and the candidate ranking (Section 44.5) uses it as the primary ordering metric after hard constraint filtering. When the user's stated priorities (performance / cost / sustainability) deviate from the default weights, the ranking objective uses priority-derived weights; the score endpoint itself keeps disclosing the exact methodology and weights used, so nothing is hidden from the user.
 
 --------------------------------------------------
 # 24. TECHNOLOGY STACK
@@ -983,6 +1224,14 @@ backend/
             recommendation_service.py
             optimization_service.py
 
+            # NEW (Revision 2) — Mode B services, same app, no new processes:
+            generation/
+                requirement_engine.py          # Workload Requirement Engine
+                candidate_generator.py         # Candidate Infrastructure Generator
+                target_selector.py             # "Let EcoOps AI choose" rules
+                iac_generator.py               # IaC Generation Engine (templates)
+                generation_service.py          # orchestration of Workflow B
+
         utils/
 
     tests/
@@ -1015,7 +1264,12 @@ Important pages:
 5. Recommendation page
 6. Configuration comparison page
 
-The UI should be professional but not excessively complicated.
+UPDATED (Revision 2) — the landing page becomes the two-entry-point choice (Section 22), and the following pages/flows are added for Mode B:
+
+7. Generation form page (workload requirements + target selection; plain language, no IaC syntax)
+8. Generation result page (recommended infrastructure, estimated impact, "why this configuration?", generated IaC with preview/download)
+
+The generation form reuses the existing workload form component; the result page reuses the existing score, estimate, and configuration display components. The UI should be professional but not excessively complicated.
 
 --------------------------------------------------
 # 27. API DESIGN
@@ -1055,6 +1309,62 @@ Validates uploaded IaC.
 
 These are initial suggestions and may evolve.
 
+NOTE: the implemented Mode A API (Phases 6–11) matches this design and adds per-resource endpoints — see the README API table for the exact implemented list. Mode A endpoints are unchanged by this revision.
+
+UPDATED (Revision 2) — new design-level endpoints for Mode B (Phases 14–17), reusing the same backend and database:
+
+POST /api/v1/generate
+
+Input:
+
+- workload profile (v2 fields required, Section 5)
+- generation target (terraform | kubernetes | docker_compose | terraform+kubernetes | auto)
+- cloud/deployment preferences (optional; provider, region where applicable)
+- constraints (already embedded in the workload profile: latency, availability)
+
+Behavior:
+
+- Normalizes requirements
+- Estimates resource requirements
+- Generates candidate infrastructures (Section 44.2)
+- Evaluates every candidate through the SAME ML / estimation / constraint / score pipeline
+- Ranks candidates and selects the best acceptable one
+- Generates IaC for the selected candidate (after target selection if "auto")
+- Validates the generated IaC by round-trip parse (Section 44.6)
+
+Returns:
+
+- generation/analysis ID (a record of source_mode "workload_generation")
+
+GET /api/v1/generation/{id}
+
+Returns:
+
+- selected architecture (normalized configuration)
+- resource requirements
+- all evaluated candidates with their estimates and constraint results (including rejected ones and why)
+- predicted utilization
+- cost / energy / carbon estimates
+- explanation (why this configuration; target-selection rule if "auto")
+
+GET /api/v1/generation/{id}/configuration
+
+Returns:
+
+- the generated IaC text for the selected target (labeled "Generated")
+- per-target file names
+- the round-trip validation result
+- download metadata
+
+POST /api/v1/generation/{id}/optimize
+
+Runs candidate evaluation / optimization again if required — for example after the user adjusts requirements or priorities, or to re-run ranking with modified weights. Deterministic and idempotent.
+
+Design notes:
+
+- These are design-level endpoints; implementation may reuse existing endpoints where that is cleaner (e.g., if a generation record is stored as an analysis record with source_mode "workload_generation", the existing per-analysis endpoints may serve parts of the response).
+- The generation result must include rejected candidates and rejection reasons for explainability — do not return only the winner.
+
 --------------------------------------------------
 # 28. DATABASE
 --------------------------------------------------
@@ -1080,6 +1390,36 @@ The database should store metadata and analysis results.
 Do not store secrets.
 
 Do not store cloud credentials.
+
+UPDATED (Revision 2) — additive data-model extension ONLY. Do not redesign the existing schema; the existing `analyses` and recommendation tables stay as they are.
+
+An analysis record must be able to distinguish between the two operating modes:
+
+- source_mode:
+  - existing_iac       (Mode A — the current, already-implemented behavior)
+  - workload_generation (Mode B — new)
+
+- source_type:
+  - terraform
+  - kubernetes
+  - docker_compose
+  - generated           (NEW — Mode B output)
+
+- workload_profile (JSON, already stored; v2 fields added inside it)
+
+- infrastructure_configuration (JSON, already stored; for Mode B this is the SELECTED candidate)
+
+- candidate_configurations (NEW, JSON or separate table where applicable): the evaluated candidate set, each with its normalized configuration, predictions, estimates, constraint results, score, and acceptance/rejection reason
+
+- selected_configuration: a reference (id or index) into the candidate set — the best acceptable candidate
+
+- recommendations: unchanged (Mode A); Mode B exposes the candidate ranking instead
+
+- impact estimates: unchanged storage pattern (predictions / estimates on the analysis record)
+
+- generated_iac (NEW, Text + target + file name): the generated Terraform / Kubernetes / Docker Compose text, stored separately and labeled as generated
+
+Implementation guidance: the smallest change is to add nullable columns to the existing analyses table (source_mode, source_type, candidate_configurations, selected_configuration, generated_iac) or a small companion `generations` table linked to it. Existing Mode A rows simply get source_mode = "existing_iac" (or a sensible default at read time). No migration of existing data is required beyond adding columns.
 
 --------------------------------------------------
 # 29. SECURITY
@@ -1166,6 +1506,26 @@ Never hard-code fake results just to make the demo look good.
 
 Demo outputs should be generated by the actual system.
 
+UPDATED (Revision 2) — the final demonstration should also include Mode B scenarios:
+
+Scenario 4:
+
+WORKLOAD-ONLY, "LET ECOPS AI CHOOSE" TARGET
+
+Input: an application workload description only (e.g., bursty e-commerce, 10,000 users, high availability, autoscaling required).
+
+Expected result: the target-selection rule fires visibly, candidate configurations are evaluated, a best acceptable one is selected, and generated IaC is shown and downloadable.
+
+Scenario 5:
+
+WORKLOAD-ONLY, EXPLICIT TARGET
+
+Input: same workload, but the user explicitly picks Kubernetes (or Terraform + Kubernetes).
+
+Expected result: valid generated IaC for the chosen target that round-trip parses to the selected configuration.
+
+Scenarios 4–5 must run on the real pipeline — never hard-coded outputs.
+
 --------------------------------------------------
 # 31. PROJECT IMPLEMENTATION ORDER
 --------------------------------------------------
@@ -1176,11 +1536,13 @@ Do NOT attempt to build everything simultaneously.
 
 Follow this order.
 
+STATUS (Revision 2): Phases 1–11 are COMPLETE and verified. The order below is the authoritative continuation. Phases 12 and 13 keep their original numbers and intent. Mode B is delivered in NEW Phases 14–17, after the core optimization pipeline is stable (including both remaining parsers) and before final integration/testing. The old Phases 14–17 are renumbered to 18–21 with unchanged content — this is the only renumbering, it affects only PENDING phases, and no completed phase number changes.
+
 PHASE 1:
-Repository + project structure
+Repository + project structure                                    [DONE]
 
 PHASE 2:
-Kubernetes parser
+Kubernetes parser                                                  [DONE]
 
 Goal:
 
@@ -1191,79 +1553,169 @@ Extract features
 Return JSON
 
 PHASE 3:
-Normalized feature schema
+Normalized feature schema                                          [DONE]
 
 PHASE 4:
-Dataset preprocessing
+Dataset preprocessing                                              [DONE]
 
 PHASE 5:
-First ML model
+First ML model                                                     [DONE]
 
 PHASE 6:
-Prediction API
+Prediction API                                                     [DONE]
 
 PHASE 7:
-Energy / carbon / cost estimation
+Energy / carbon / cost estimation                                  [DONE]
 
 PHASE 8:
-Constraint engine
+Constraint engine                                                  [DONE]
 
 PHASE 9:
-Recommendation engine
+Recommendation engine                                              [DONE]
 
 PHASE 10:
-Optimized YAML generation
+Optimized YAML generation                                          [DONE]
 
 PHASE 11:
-Frontend dashboard
+Frontend dashboard                                                 [DONE]
 
 PHASE 12:
-Terraform parser
+Terraform parser                                                   [pending]
 
 PHASE 13:
-Docker Compose parser
+Docker Compose parser                                              [pending]
 
-PHASE 14:
-Full integration
+PHASE 14 (NEW — Mode B, part 1):
+Workload Requirement Engine
 
-PHASE 15:
-Testing
+Goal:
 
-PHASE 16:
-Dockerization
+Workload form input (v2 fields)
+    ↓
+Normalize + validate requirements
+    ↓
+Deterministic resource requirement estimation (Section 44.1)
+    ↓
+WorkloadProfile v2 schema finalized (additive, Mode A unaffected)
 
-PHASE 17:
-AWS deployment
+PHASE 15 (NEW — Mode B, part 2):
+Candidate Infrastructure Generator + evaluation loop
+
+Goal:
+
+Resource requirements
+    ↓
+Candidate normalized configurations (sizing / replica / autoscaling variants)
+    ↓
+Reuse feature extraction + ML prediction + estimation + constraint engine + score for EACH candidate
+    ↓
+Persisted candidate set with per-candidate results
+
+PHASE 16 (NEW — Mode B, part 3):
+IaC Generation Engine + Target Selection
+
+Goal:
+
+Selected candidate (normalized)
+    ↓
+Deterministic templates → Terraform / Kubernetes / Docker Compose / Terraform+Kubernetes
+    ↓
+Round-trip validation through the Phase 2/12/13 parsers (Section 44.6)
+    ↓
+"Let EcoOps AI choose" explicit rules (Section 44.4)
+
+PHASE 17 (NEW — Mode B, part 4):
+Mode B API + dashboard workflow
+
+Goal:
+
+POST /api/v1/generate and the GET/POST generation endpoints (Section 27)
+    ↓
+Two-entry-point landing page + generation form + result screen (Section 22)
+    ↓
+End-to-end Workflow B demo (Scenarios 4–5)
+
+PHASE 18 (was 14):
+Full integration                                                   [pending]
+
+PHASE 19 (was 15):
+Testing                                                            [pending]
+
+PHASE 20 (was 16):
+Dockerization                                                      [pending]
+
+PHASE 21 (was 17):
+AWS deployment                                                     [pending]
+
+Revised-phase-mapping summary (explicit, as required):
+
+| Original phase | Revised phase | Status |
+|---|---|---|
+| 1–11 | 1–11 (unchanged) | DONE |
+| 12 (Terraform parser) | 12 (unchanged) | pending |
+| 13 (Docker Compose parser) | 13 (unchanged) | pending |
+| — (did not exist) | 14 (Workload Requirement Engine) | NEW |
+| — (did not exist) | 15 (Candidate Generator + evaluation) | NEW |
+| — (did not exist) | 16 (IaC Generation + Target Selection) | NEW |
+| — (did not exist) | 17 (Mode B API + dashboard) | NEW |
+| 14 (Full integration) | 18 | renumbered |
+| 15 (Testing) | 19 | renumbered |
+| 16 (Dockerization) | 20 | renumbered |
+| 17 (AWS deployment) | 21 | renumbered |
+
+Phase ordering rationale: the parsers land BEFORE Mode B so that Phase 16 can generate and round-trip-validate Terraform and Docker Compose targets immediately, and so that Mode B candidates in Phase 15 can include Terraform-style normalized configurations (instance types) rather than Kubernetes-only shapes.
 
 --------------------------------------------------
 # 32. MVP DEFINITION
 --------------------------------------------------
 
-The MVP is:
+UPDATED (Revision 2) — the project has TWO MVP demonstrations, one per operating mode. Both must work end-to-end.
 
-Kubernetes YAML
-    ↓
-Parser
-    ↓
-Feature extraction
-    ↓
-ML utilization prediction
-    ↓
-Energy estimate
-    ↓
-Carbon estimate
-    ↓
-Cost estimate
-    ↓
-Constraint checking
-    ↓
-Recommendation
-    ↓
-Dashboard
+## MVP A — Existing IaC analysis (achieved, Phases 1–11)
 
-If this pipeline works, EcoOps AI has a working core.
+Kubernetes/IaC
+    ↓
+Workload
+    ↓
+Analysis
+    ↓
+Prediction
+    ↓
+Sustainability
+    ↓
+Optimization
+    ↓
+Optimized IaC
 
-Terraform and Docker Compose can then be added as extensions.
+## MVP B — Workload-to-infrastructure generation (Phases 14–17)
+
+Workload
+    ↓
+Infrastructure design
+    ↓
+Optimization
+    ↓
+Sustainability analysis
+    ↓
+Generated IaC
+
+MVP B is successful when:
+
+- accepts workload-only input
+- creates a normalized workload representation
+- estimates required infrastructure
+- evaluates candidate configurations
+- respects important constraints
+- estimates cost
+- estimates energy
+- estimates carbon
+- selects the best acceptable configuration according to the implemented objective
+- generates valid IaC for the selected target
+- explains the reasoning
+- allows user review
+- does not automatically deploy
+
+If MVP A's pipeline works, EcoOps AI has a working analysis core. MVP B proves the same core can also DESIGN infrastructure. Terraform and Docker Compose can then be added as extensions on both paths.
 
 --------------------------------------------------
 # 33. VERSION 2 / ADVANCED FEATURES
@@ -1328,6 +1780,16 @@ EcoOps-AI/
 
 The actual structure can be refined during implementation.
 
+UPDATED (Revision 2) — the Mode B services live inside the existing backend app (see Section 25):
+
+backend/app/services/generation/
+
+and the IaC generation templates live beside the parsers:
+
+backend/app/parsers/templates/
+
+No new top-level services, repositories, or processes are introduced.
+
 --------------------------------------------------
 # 35. GIT WORKFLOW
 --------------------------------------------------
@@ -1347,6 +1809,8 @@ feature/ml-model
 feature/recommendation-engine
 feature/frontend
 feature/terraform-parser
+feature/workload-generation
+feature/iac-generation
 
 The primary developer may own most feature branches.
 
@@ -1434,6 +1898,12 @@ Recommendations are advisory.
 
 The engineer makes the final deployment decision.
 
+UPDATED (Revision 2) — this principle extends to Mode B:
+
+"AI automatically designs and provisions infrastructure for every application." is also NOT what EcoOps AI does.
+
+Mode B is requirement-based DESIGN SUPPORT, not autonomous provisioning. The system derives resource requirements from documented deterministic rules, evaluates candidates with the same evidence-based pipeline (ML predictions, estimates, constraints), and presents a ranked selection with full reasoning. The generated IaC is a PROPOSAL for human review — the engineer still reviews, downloads, and deploys manually. Uncertainty language (estimated / predicted / expected) applies to Mode B outputs exactly as it does to Mode A.
+
 --------------------------------------------------
 # 39. WHAT NOT TO CLAIM
 --------------------------------------------------
@@ -1480,6 +1950,20 @@ EcoOps AI should be considered successful if:
 13. It shows current vs optimized metrics.
 14. It never automatically deploys infrastructure.
 15. The complete workflow can be demonstrated locally.
+
+UPDATED (Revision 2) — additional success criteria for Mode B (workload generation):
+
+16. It accepts workload-only input (no IaC file).
+17. It creates a normalized workload representation from the form input.
+18. It estimates required infrastructure from documented, deterministic rules.
+19. It evaluates multiple candidate configurations through the shared ML / estimation / constraint pipeline.
+20. It respects important constraints (candidates violating them are rejected, visibly).
+21. It estimates cost, energy, and carbon for every candidate.
+22. It selects the best acceptable configuration according to the implemented ranking objective and the user's stated priorities.
+23. It generates valid IaC for the selected target (Terraform, Kubernetes, Docker Compose, or Terraform+Kubernetes), validated by round-trip parsing.
+24. It explains the reasoning (requirements → resources → candidates → selection → generation, including rejected candidates).
+25. It allows user review (preview and download; no automatic deployment ever).
+26. Both MVP A and MVP B (Section 32) can be demonstrated end-to-end locally.
 
 --------------------------------------------------
 # 41. DEVELOPMENT RULE FOR CODEX
@@ -1542,6 +2026,18 @@ Only after this works should ML integration begin.
 # 43. FINAL PROJECT VISION
 --------------------------------------------------
 
+UPDATED (Revision 2) — the final project vision is:
+
+"An AI-powered pre-deployment cloud sustainability advisor that can either analyze an existing Infrastructure as Code configuration or design and generate an optimized infrastructure configuration from workload requirements."
+
+The two paths should be clearly visible:
+
+Engineer already has infrastructure:
+→ Analyze → Optimize → Review
+
+Engineer only has application/workload requirements:
+→ Design → Optimize → Generate → Review
+
 EcoOps AI should feel like an intelligent pre-deployment review assistant for cloud engineers.
 
 The experience should be:
@@ -1552,38 +2048,161 @@ Engineer:
 
 EcoOps AI:
 
-"Upload your infrastructure configuration and describe your expected workload."
+"Do you already have your infrastructure configuration, or should I help you design it from your workload requirements?"
+
+## Path A — the engineer already has infrastructure
 
 Engineer uploads:
 
 Terraform / Kubernetes / Docker Compose
 
+and describes the expected workload.
+
 EcoOps AI:
 
 "I analyzed your configuration."
-
 "Here is the predicted utilization."
-
 "Here is the estimated cost."
-
 "Here is the estimated energy consumption."
-
 "Here is the estimated carbon impact."
-
 "These resources appear overprovisioned."
-
 "Here are alternative configurations."
-
 "This recommendation satisfies your performance constraints."
-
 "Here is why I recommend it."
-
 "Here is the expected impact."
-
 "Here is the optimized configuration."
 
 Engineer:
 
 "Review → Download → Deploy manually."
 
+## Path B — the engineer only has application/workload requirements
+
+Engineer describes:
+
+Application type, users, traffic, latency, availability, storage, autoscaling, and priorities — in a plain-language form.
+
+EcoOps AI:
+
+"I designed a candidate infrastructure from your requirements."
+"Here is the recommended architecture and its resources."
+"Here is the predicted utilization."
+"Here is the estimated cost, energy, and carbon impact."
+"Every constraint you set is satisfied by this configuration."
+"Here are the alternatives I evaluated and why they were not selected."
+"Here is why this configuration was chosen."
+"Here is the generated Terraform / Kubernetes / Docker Compose."
+
+Engineer:
+
+"Review → Download → Deploy manually."
+
+Nothing is ever deployed automatically on either path.
+
 That is the complete EcoOps AI concept.
+
+--------------------------------------------------
+# 44. MODE B ARCHITECTURE DETAIL (NEW — Revision 2)
+--------------------------------------------------
+
+This section is the implementation specification for the new Mode B modules (Phases 14–17). It defines exactly enough to build them; anything not specified here follows the existing codebase conventions.
+
+## 44.1 Workload Requirement Engine (Phase 14)
+
+Purpose: turn the Mode B form input into a validated WorkloadProfile v2 and a resource-requirement estimate.
+
+Steps:
+
+1. Normalize and validate the v2 workload fields (Section 5). Reject impossible combinations with clear errors (e.g., peak RPS below average RPS; availability target below 90% with "high" performance priority is allowed but flagged as unusual, never silently changed).
+2. Estimate a BASE resource requirement deterministically, per application type. Documented starting rules (all constants live in a configurable table, not scattered hard-codes; values are starting points refined during Phase 14 testing):
+
+   - Per-request concurrency factor by application type (e.g., rest-api and web-application handle more requests per CPU-core than machine-learning or ai-inference; database and streaming get a memory-dominant profile; batch gets a throughput profile dominated by total work rather than latency).
+   - CPU requirement ≈ f(peak RPS, app-type factor), rounded up to a discrete CPU size (0.5 / 1 / 2 / 4 / 8 cores).
+   - Memory requirement ≈ g(CPU, app-type memory ratio, storage-adjacent needs for database/streaming), rounded to discrete sizes (1 / 2 / 4 / 8 / 16 / 32 GiB).
+   - Replica count: minimum 2 when availability target ≥ 99.9% or autoscaling required; minimum 1 otherwise; expected-replica estimate derived from average vs peak RPS ratio.
+   - Storage: taken directly from the user's storage requirement (no invention).
+   - Latency and availability requirements are NOT consumed here — they are constraints consumed later by the constraint engine. The requirement engine only records them.
+
+3. Output: a structured requirement object (required CPU, memory, replica estimate, storage, autoscaling flag) that feeds candidate generation. This object is intermediate — it is persisted as part of the generation record for explainability, but it is NOT itself an infrastructure configuration.
+
+IMPORTANT: these rules are deterministic and documented. They may be crude — that is acceptable for a B.Tech prototype as long as they are honest, labeled as estimates, and visible in the explanation. Do NOT train a second ML model to "predict infrastructure size"; the existing utilization model provides the evidence downstream.
+
+## 44.2 Candidate Infrastructure Generator (Phase 15)
+
+Purpose: produce a SMALL set (target: 3–6, never more than ~10) of concrete candidate configurations from the requirement estimate.
+
+Candidates vary along exactly three axes:
+
+1. Sizing: undersized (requirement −1 step), required (the estimate), headroom (+1 step) — subject to a floor of the minimum viable size.
+2. Replica strategy: fixed replicas at the estimate; fixed replicas at the availability minimum; autoscaling enabled (min = availability minimum, max = peak-RPS-derived ceiling).
+3. Storage: as requested; plus one economy option where the app type tolerates it (never for database/streaming).
+
+Each candidate becomes a NORMALIZED InfrastructureConfiguration — the same schema Mode A produces from parsers. This is the key architectural reuse point: downstream, candidates are indistinguishable from parsed infrastructure.
+
+## 44.3 Candidate evaluation (reuse — no new code paths)
+
+Every candidate is evaluated through the EXISTING pipeline, in the existing services:
+
+Feature extraction → ML utilization prediction → energy estimation → carbon estimation → cost estimation → constraint engine → sustainability score.
+
+Constraint inputs per candidate: the user's latency, availability, users, and traffic requirements (the same five feasibility checks implemented in Phase 8, using the candidate's allocations in place of a parsed configuration's).
+
+Output per candidate: predictions, estimates, constraint results (per-check pass/fail with explanations), and score. All of it is persisted with the generation record — rejected candidates included.
+
+A candidate with ANY failed important constraint is marked ineligible. Ineligible candidates can never be selected, regardless of score. If ALL candidates are ineligible, the generation fails with an explanatory response (which constraints failed and why) — the system must NOT return a constraint-violating configuration "as a best effort". The user can relax requirements and retry.
+
+## 44.4 Target Selection — "Let EcoOps AI choose" (Phase 16)
+
+Explicit, ordered rules evaluated against the normalized requirements. The FIRST matching rule wins, and the matched rule is reported in the explanation. No ML, no LLM, no magic.
+
+1. If application type = batch processing → **Docker Compose** (or Terraform for VM-based batch): scheduled, non-latency-critical work does not need an orchestrator.
+2. Else if application type = database → **Terraform + Kubernetes**: managed-or-StatefulSet data tier via Terraform-provisioned storage; if no storage requirement was given, prefer **Terraform** alone (managed database).
+3. Else if autoscaling required AND (traffic pattern = bursty OR application type ∈ {e-commerce, streaming}) → **Kubernetes** (HPA is the designed mechanism).
+4. Else if application type = machine-learning or ai-inference → **Kubernetes** (GPU scheduling semantics) — with Terraform available for node provisioning at V2.
+5. Else if autoscaling required → **Kubernetes**.
+6. Else if expected users ≥ 100,000 OR availability ≥ 99.9% → **Terraform + Kubernetes**.
+7. Else (simple small services) → **Docker Compose**; if cloud-provider resources (managed DB, object storage, VPC) were implied by the requirements → **Terraform + Docker Compose** pattern rendered as Terraform (+ Compose for the app tier).
+
+Explicitly selected targets skip this module entirely. When the user chooses "Terraform + Kubernetes", the generation engine emits BOTH artifacts (Terraform for provider resources + Kubernetes manifests for the workloads) and validates each with its own parser.
+
+## 44.5 Candidate ranking (Phase 15/16)
+
+Ranking objective over eligible candidates:
+
+- Primary metric: the sustainability score (Section 23) computed per candidate.
+- Priority-derived weights: the user's performance / cost / sustainability priorities (low / medium / high) adjust the score's component weights within the existing configurable-weights mechanism. High performance priority increases the weight of the utilization/performance components; high cost priority increases cost-efficiency weight; high sustainability priority increases energy/carbon weights.
+- Deterministic tie-breaking: lower cost, then lower energy, then lower CPU.
+- The EXACT weights used for a generation are stored with the record and disclosed in the response and UI — same transparency rule as the Mode A score endpoint.
+
+The system must NOT simply minimize CPU, memory, cost, or carbon: hard constraints gate eligibility first, and the weighted objective balances the remaining dimensions.
+
+## 44.6 IaC Generation and round-trip validation (Phase 16)
+
+The IaC Generation Engine renders the selected candidate's normalized configuration through deterministic, readable templates — one template set per target (Terraform, Kubernetes, Docker Compose, Terraform+Kubernetes combo).
+
+Mandatory validation: every generated artifact is parsed back through the SAME parser that handles user uploads of that format (Phase 2 Kubernetes parser; Phase 12 Terraform parser; Phase 13 Docker Compose parser). The re-parsed normalized configuration must reproduce the selected candidate's resource fields (cpu, memory, replicas, storage, autoscaling) exactly. Any mismatch is a generation failure (HTTP 500-class error, logged); nothing unvalidated is returned to the user. This is the strongest correctness guarantee available without executing anything — and execution remains forbidden (Section 29).
+
+Template guidance: start from the repo's existing `infrastructure/` example manifests as template shapes; keep templates boring, commented, and version-controlled in `backend/app/parsers/templates/`. Region/provider metadata comes from the existing configurable pricing/metadata tables (Section 9 principle) — never hard-coded in templates.
+
+## 44.7 Explainability for Mode B (Phase 17)
+
+The generation response and result screen must include, in plain language:
+
+1. The derived resource requirements and the rule/constants that produced them.
+2. The target selection rule that fired (if "auto").
+3. Per-candidate: allocations, score, constraint results, and the estimate values used in ranking.
+4. Why each rejected candidate was rejected (failed check names + explanations).
+5. Why the winner won (weight disclosure + tie-break notes where relevant).
+6. The estimate/prediction disclaimer language from Sections 15/16/39, applied to every number shown.
+
+## 44.8 Testing requirements for Mode B
+
+- Requirement engine: deterministic outputs for representative inputs; validation rejections for impossible inputs.
+- Candidate generator: candidate count within bounds; floor/ceiling respected; deterministic given the same input.
+- Evaluation loop: reuse means the existing per-service tests carry over; add one integration test per candidate axis (sizing/replica/storage).
+- Target selection: table-driven tests over the rule list, including first-match-wins precedence.
+- IaC generation: for each target, render → parse round-trip equality on resource fields; golden-file tests for template output.
+- API: contract tests for the four generation endpoints, including the all-candidates-rejected failure path.
+- Frontend: form validation, result-screen rendering with real response shapes, preview/download interactions.
+
+END OF SECTION 44 — END OF DESIGN DOCUMENT.

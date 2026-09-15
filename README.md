@@ -1,10 +1,15 @@
 # EcoOps AI
 
-> **An AI-powered cloud sustainability advisor for pre-deployment infrastructure optimization.**
+> **An AI-powered pre-deployment cloud sustainability advisor that can either analyze an existing Infrastructure as Code configuration or design and generate an optimized infrastructure configuration from workload requirements.**
 
-EcoOps AI helps Cloud and DevOps engineers review Infrastructure as Code (IaC) *before* deployment. It analyzes infrastructure allocations alongside a workload profile to identify likely overprovisioning, predict resource utilization, estimate cost, energy use, and carbon impact, and propose constraint-aware optimizations for human review.
+EcoOps AI helps Cloud and DevOps engineers review infrastructure *before* deployment, through two workflows:
 
-This repository implements the first nine phases of the planned final-year B.Tech CSE prototype: Kubernetes analysis, ML utilization prediction, transparent cost/energy/carbon estimation, a constraint engine, and a recommendation engine. The remaining roadmap is documented below.
+- **Workflow A — Analyze Existing Infrastructure** *(implemented through Phase 11)*: upload Terraform, Kubernetes, or Docker Compose plus a workload profile. EcoOps AI identifies likely overprovisioning, predicts resource utilization, estimates cost, energy use, and carbon impact, and proposes constraint-aware optimizations as a separate optimized copy of the original IaC for human review.
+- **Workflow B — Create Sustainable Infrastructure** *(designed; Phases 14–17)*: describe only the application workload in a plain-language form (no IaC knowledge needed), optionally letting EcoOps AI choose the target by explicit rules. The system designs candidate infrastructures, evaluates each through the same ML/estimation/constraint pipeline, ranks them, and generates valid IaC for review and download.
+
+Both workflows are advisory decision support. EcoOps AI never deploys infrastructure, runs uploaded IaC, applies changes, or silently changes a user's files.
+
+This repository implements the first eleven phases of the planned final-year B.Tech CSE prototype: Kubernetes analysis, ML utilization prediction, transparent cost/energy/carbon estimation, a constraint engine, and a recommendation engine. The remaining roadmap — including the two-mode extension — is documented below.
 
 ## Why EcoOps AI?
 
@@ -166,15 +171,18 @@ EcoOps-AI/
 
 ## Development roadmap
 
-1. Create the repository structure.
-2. Implement Kubernetes YAML validation and parsing.
-3. Define the normalized infrastructure schema.
-4. Prepare data and train an initial utilization model.
-5. Add prediction, estimation, constraint, and recommendation services. (done - phases 5-9)
-6. Generate optimized YAML while preserving the original configuration. (done - phase 10)
-7. Build the dashboard and integrate the API.
-8. Add Terraform and Docker Compose parsers.
-9. Test, containerize, and optionally deploy.
+Phases 1–11 are **done**. Revised roadmap (design doc §31):
+
+1. Create the repository structure. (done)
+2. Implement Kubernetes YAML validation and parsing. (done)
+3. Define the normalized infrastructure schema. (done)
+4. Prepare data and train an initial utilization model. (done)
+5. Add prediction, estimation, constraint, and recommendation services. (done — phases 5–9)
+6. Generate optimized YAML while preserving the original configuration. (done — phase 10)
+7. Build the dashboard and integrate the API. (done — phase 11)
+8. Add Terraform and Docker Compose parsers. (phases 12–13)
+9. Workload-to-infrastructure generation: requirement engine, candidate generation/evaluation, IaC generation templates with target selection, and the Mode B API + dashboard entry points. (new phases 14–17)
+10. Test, containerize, and optionally deploy. (phases 18–21, renumbered from 14–17)
 
 ## Contributing
 
@@ -182,7 +190,9 @@ Keep modules small and independently testable. In particular, parsers, ML code, 
 
 ## Project status
 
-**Phases 1–11 implemented:** Kubernetes parsing, normalized features, dataset preprocessing, utilization-model training (including a documented synthetic Kubernetes-scale demand component, see `ml/synthetic_augment.py`), prediction API, transparent cost/energy/carbon estimation, the constraint engine (five configurable feasibility checks), the recommendation engine (constraint-gated candidate ranking with persisted results via `POST /analysis/{id}/optimize`), optimized YAML generation (`GET /analysis/{id}/optimized-config` returns the optimized manifest, a unified diff against the preserved original, and the change list), the weighted sustainability score (`GET /analysis/{id}/score`, disclosed methodology and configurable weights per design doc §23), and the React dashboard visualizing the full pipeline. Remaining: Terraform/Docker Compose parsers (Phases 12–13). See [EcoOps-AI project design.md](<EcoOps-AI project design.md>) for the roadmap.
+**Phases 1–11 implemented:** Kubernetes parsing, normalized features, dataset preprocessing, utilization-model training (including a documented synthetic Kubernetes-scale demand component, see `ml/synthetic_augment.py`), prediction API, transparent cost/energy/carbon estimation, the constraint engine (five configurable feasibility checks), the recommendation engine (constraint-gated candidate ranking with persisted results via `POST /analysis/{id}/optimize`), optimized YAML generation (`GET /analysis/{id}/optimized-config` returns the optimized manifest, a unified diff against the preserved original, and the change list), the weighted sustainability score (`GET /analysis/{id}/score`, disclosed methodology and configurable weights per design doc §23), and the React dashboard visualizing the full pipeline.
+
+**Design revision 2 (two operating modes):** the design document now specifies Mode B — workload-to-infrastructure generation (new Phases 14–17, after the Terraform/Docker Compose parsers in Phases 12–13; integration/testing/Docker/AWS renumbered 18–21). See [EcoOps-AI project design.md](<EcoOps-AI project design.md>) for the authoritative specification, especially §4, §6, §27, §31, §32, §40, §43, and §44.
 
 ## Frontend dashboard (Phase 11)
 
