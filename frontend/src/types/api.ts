@@ -55,6 +55,13 @@ export interface InfrastructureConfiguration {
   memory_limit_gb: number | null;
   autoscaling_enabled: boolean;
   container_image: string | null;
+  // Terraform-specific fields (Phase 12); null for Kubernetes sources.
+  cloud_provider: string | null;
+  region: string | null;
+  instance_type: string | null;
+  instance_count: number | null;
+  storage_gb: number | null;
+  parser_warnings: string[] | null;
 }
 
 export interface WorkloadProfile {

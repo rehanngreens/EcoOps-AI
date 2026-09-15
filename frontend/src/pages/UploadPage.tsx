@@ -9,11 +9,11 @@ export function UploadPage({ onAnalyzed }: { onAnalyzed: (analysis: AnalyzeRespo
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const analyze = async (yaml: string, workload: WorkloadProfile) => {
+  const analyze = async (yaml: string, workload: WorkloadProfile, fileName?: string) => {
     setBusy(true);
     setError(null);
     try {
-      const analysis = await analyzeManifest(yaml, workload);
+      const analysis = await analyzeManifest(yaml, workload, fileName);
       onAnalyzed(analysis);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Analysis failed");

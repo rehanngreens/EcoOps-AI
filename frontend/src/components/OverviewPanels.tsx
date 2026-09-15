@@ -77,6 +77,14 @@ export function ConfigurationPanel({ analysis }: { analysis: AnalyzeResponse }) 
     ["Memory request", config.memory_request_gb != null ? `${config.memory_request_gb} GiB` : "—"],
     ["Memory limit", config.memory_limit_gb != null ? `${config.memory_limit_gb} GiB` : "—"],
     ["Autoscaling", config.autoscaling_enabled ? "Enabled" : "Disabled"],
+    ...(config.source_type === "terraform"
+      ? ([
+          ["Provider / region", `${config.cloud_provider ?? "aws"}${config.region ? ` · ${config.region}` : ""}`],
+          ["Instance type", config.instance_type ?? "—"],
+          ["Instance count", config.instance_count != null ? String(config.instance_count) : "—"],
+          ["Storage", config.storage_gb != null ? `${config.storage_gb} GB` : "—"],
+        ] as Array<[string, string]>)
+      : ([["Image", config.container_image ?? "—"]] as Array<[string, string]>)),
     [
       "Workload",
       `${analysis.workload.application_type}, ${analysis.workload.expected_users.toLocaleString()} users, ${analysis.workload.traffic_level} traffic`,

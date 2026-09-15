@@ -17,6 +17,12 @@ export const analyzeResponse: AnalyzeResponse = {
     memory_limit_gb: 16,
     autoscaling_enabled: false,
     container_image: "ecommerce/api-backend:1.0.0",
+    cloud_provider: null,
+    region: null,
+    instance_type: null,
+    instance_count: null,
+    storage_gb: null,
+    parser_warnings: null,
   },
   workload: {
     application_type: "e-commerce",

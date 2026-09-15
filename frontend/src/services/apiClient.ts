@@ -35,9 +35,16 @@ async function handleResponse<T>(response: Response): Promise<T> {
 export async function analyzeManifest(
   yamlText: string,
   workload: WorkloadProfile | null,
+  fileName = "deployment.yaml",
 ): Promise<AnalyzeResponse> {
   const form = new FormData();
-  form.append("file", new File([yamlText], "deployment.yaml", { type: "application/x-yaml" }));
+  const isTerraform = fileName.endsWith(".tf");
+  form.append(
+    "file",
+    new File([yamlText], fileName, {
+      type: isTerraform ? "text/x-terraform" : "application/x-yaml",
+    }),
+  );
   if (workload) {
     form.append("workload", JSON.stringify(workload));
   }
@@ -74,20 +81,31 @@ export interface DemoPreset {
   id: string;
   label: string;
   description: string;
+  /** The IaC text (YAML or Terraform) staged for analysis. */
   yaml: string;
+  /** File name used when staging and sending the demo. */
+  fileName: string;
+  /** IaC family, used to group the demo section. */
+  format: "kubernetes" | "terraform";
   workload: WorkloadProfile;
 }
 
 import wellYaml from "../fixtures/deployment-well-provisioned.yaml?raw";
 import moderateYaml from "../fixtures/deployment-moderate-overprovisioned.yaml?raw";
 import heavyYaml from "../fixtures/deployment-heavy-overprovisioned.yaml?raw";
+import tfWell from "../fixtures/main-well-provisioned.tf?raw";
+import tfModerate from "../fixtures/main-moderate-overprovisioned.tf?raw";
+import tfHeavy from "../fixtures/main-heavy-overprovisioned.tf?raw";
 
-export const DEMO_PRESETS: DemoPreset[] = [
+/** Kubernetes demo scenarios. */
+export const KUBERNETES_PRESETS: DemoPreset[] = [
   {
     id: "well",
     label: "Well-provisioned",
     description: "2× 0.5c/512Mi — expect no recommendation",
     yaml: wellYaml,
+    fileName: "well-deployment.yaml",
+    format: "kubernetes",
     workload: {
       application_type: "rest-api",
       expected_users: 1000,
@@ -101,6 +119,8 @@ export const DEMO_PRESETS: DemoPreset[] = [
     label: "Moderate overprovisioned",
     description: "4× 2c/4Gi, 10k users — borderline",
     yaml: moderateYaml,
+    fileName: "moderate-deployment.yaml",
+    format: "kubernetes",
     workload: {
       application_type: "web-application",
       expected_users: 10000,
@@ -114,6 +134,8 @@ export const DEMO_PRESETS: DemoPreset[] = [
     label: "Heavy overprovisioned",
     description: "8× 8c/16Gi, 10k users — expect big savings",
     yaml: heavyYaml,
+    fileName: "heavy-deployment.yaml",
+    format: "kubernetes",
     workload: {
       application_type: "e-commerce",
       expected_users: 10000,
@@ -123,3 +145,55 @@ export const DEMO_PRESETS: DemoPreset[] = [
     },
   },
 ];
+
+/** Terraform demo scenarios (Phase 12). */
+export const TERRAFORM_PRESETS: DemoPreset[] = [
+  {
+    id: "tf-well",
+    label: "Well-provisioned",
+    description: "2× t3.medium (2 vCPU/4GiB) — expect few recommendations",
+    yaml: tfWell,
+    fileName: "main-well-provisioned.tf",
+    format: "terraform",
+    workload: {
+      application_type: "rest-api",
+      expected_users: 1000,
+      traffic_level: "medium",
+      max_latency_ms: 200,
+      availability_target: 99.0,
+    },
+  },
+  {
+    id: "tf-moderate",
+    label: "Moderate overprovisioned",
+    description: "3× t3.large (2 vCPU/8GiB) — some scale-down expected",
+    yaml: tfModerate,
+    fileName: "main-moderate-overprovisioned.tf",
+    format: "terraform",
+    workload: {
+      application_type: "web-application",
+      expected_users: 10000,
+      traffic_level: "medium",
+      max_latency_ms: 150,
+      availability_target: 99.9,
+    },
+  },
+  {
+    id: "tf-heavy",
+    label: "Heavy overprovisioned",
+    description: "8× m5.2xlarge (8 vCPU/32GiB) — expect big savings",
+    yaml: tfHeavy,
+    fileName: "main-heavy-overprovisioned.tf",
+    format: "terraform",
+    workload: {
+      application_type: "e-commerce",
+      expected_users: 10000,
+      traffic_level: "medium",
+      max_latency_ms: 150,
+      availability_target: 99.9,
+    },
+  },
+];
+
+/** Flat lookup kept for tests/debug tooling. */
+export const DEMO_PRESETS: DemoPreset[] = [...KUBERNETES_PRESETS, ...TERRAFORM_PRESETS];

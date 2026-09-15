@@ -64,13 +64,13 @@ Cost / energy / carbon estimation
 
 ## Supported IaC formats
 
-| Format | Planned coverage | Priority |
+| Format | Coverage | Status |
 | --- | --- | --- |
-| Kubernetes YAML | Deployments, resource requests/limits, replicas, and autoscaling-related details | MVP |
-| Terraform | Cloud provider, region, instance types/counts, storage, and autoscaling details | Extension |
-| Docker Compose | Services, replicas, CPU, memory, and storage constraints | Extension |
+| Kubernetes YAML | Deployments, resource requests/limits, replicas, and autoscaling-related details | Implemented |
+| Terraform | AWS EC2 subset: `aws_instance` (instance type via an AWS metadata table, count, tags.Name, storage), `provider "aws"` region, ASG detection. Variable interpolation and other resource types are rejected with clear errors | Implemented (Phase 12) |
+| Docker Compose | Services, replicas, CPU, memory, and storage constraints | Planned (Phase 13) |
 
-Kubernetes is the first end-to-end implementation target. Terraform and Docker Compose support follow once the MVP is stable.
+Terraform analyses support the full prediction/estimation/constraint/score pipeline; optimized-manifest *generation* is Kubernetes-only until the IaC generation phase and returns an explicit 400 for Terraform sources.
 
 ## Recommendation principles
 
@@ -141,7 +141,7 @@ Implemented endpoints are marked below; the interactive FastAPI docs are also av
 | `GET` | `/api/v1/analysis/{id}/constraints` | Retrieve the constraint feasibility evaluation (recomputed from stored analysis) | Implemented |
 | `POST` | `/api/v1/analysis/{id}/optimize` | Generate, evaluate, rank, and persist scale-down recommendations; returns baseline and optimized sustainability scores with improvement | Implemented |
 | `GET` | `/api/v1/analysis/{id}/recommendations` | Retrieve the persisted recommendation set | Implemented |
-| `GET` | `/api/v1/analysis/{id}/optimized-config` | Retrieve the optimized manifest, a diff against the original, and the change list | Implemented |
+| `GET` | `/api/v1/analysis/{id}/optimized-config` | Retrieve the optimized manifest, a diff against the original, and the change list (Kubernetes sources only; Terraform sources get an explicit 400) | Implemented |
 | `GET` | `/api/v1/analysis/{id}/score` | Compute the weighted sustainability score with disclosed methodology and configurable weights | Implemented |
 | `GET` | `/api/v1/analysis/{id}` | Retrieve an aggregate analysis result | Planned |
 
@@ -180,7 +180,7 @@ Phases 1–11 are **done**. Revised roadmap (design doc §31):
 5. Add prediction, estimation, constraint, and recommendation services. (done — phases 5–9)
 6. Generate optimized YAML while preserving the original configuration. (done — phase 10)
 7. Build the dashboard and integrate the API. (done — phase 11)
-8. Add Terraform and Docker Compose parsers. (phases 12–13)
+8. Add Terraform and Docker Compose parsers. (Terraform done — phase 12; Docker Compose pending — phase 13)
 9. Workload-to-infrastructure generation: requirement engine, candidate generation/evaluation, IaC generation templates with target selection, and the Mode B API + dashboard entry points. (new phases 14–17)
 10. Test, containerize, and optionally deploy. (phases 18–21, renumbered from 14–17)
 
@@ -190,13 +190,13 @@ Keep modules small and independently testable. In particular, parsers, ML code, 
 
 ## Project status
 
-**Phases 1–11 implemented:** Kubernetes parsing, normalized features, dataset preprocessing, utilization-model training (including a documented synthetic Kubernetes-scale demand component, see `ml/synthetic_augment.py`), prediction API, transparent cost/energy/carbon estimation, the constraint engine (five configurable feasibility checks), the recommendation engine (constraint-gated candidate ranking with persisted results via `POST /analysis/{id}/optimize`), optimized YAML generation (`GET /analysis/{id}/optimized-config` returns the optimized manifest, a unified diff against the preserved original, and the change list), the weighted sustainability score (`GET /analysis/{id}/score`, disclosed methodology and configurable weights per design doc §23), and the React dashboard visualizing the full pipeline.
+**Phases 1–12 implemented:** Kubernetes parsing, normalized features, dataset preprocessing, utilization-model training (including a documented synthetic Kubernetes-scale demand component, see `ml/synthetic_augment.py`), prediction API, transparent cost/energy/carbon estimation, the constraint engine (five configurable feasibility checks), the recommendation engine (constraint-gated candidate ranking with persisted results via `POST /analysis/{id}/optimize`), optimized YAML generation (`GET /analysis/{id}/optimized-config` returns the optimized manifest, a unified diff against the preserved original, and the change list), the weighted sustainability score (`GET /analysis/{id}/score`, disclosed methodology and configurable weights per design doc §23), the React dashboard visualizing the full pipeline, and the **Terraform parser** (Phase 12: AWS EC2 subset — `/analyze` and `/validate` auto-detect `.tf` content; analyses run the full pipeline; optimized-file generation stays Kubernetes-only with an explicit 400 for Terraform sources until Phase 16).
 
 **Design revision 2 (two operating modes):** the design document now specifies Mode B — workload-to-infrastructure generation (new Phases 14–17, after the Terraform/Docker Compose parsers in Phases 12–13; integration/testing/Docker/AWS renumbered 18–21). See [EcoOps-AI project design.md](<EcoOps-AI project design.md>) for the authoritative specification, especially §4, §6, §27, §31, §32, §40, §43, and §44.
 
 ## Frontend dashboard (Phase 11)
 
-The React dashboard (Vite + Tailwind + Recharts, in `frontend/`) covers all design-doc §22 sections: sustainability score with grade and component breakdown, cost/energy/carbon estimates, predicted utilization chart, current configuration, problems detected (failed constraint checks), constraint-gated recommendations with savings and a before/after score comparison, and the optimized YAML with colored diff and download. Demo presets for the three bundled manifests make one-click walkthroughs possible.
+The React dashboard (Vite + Tailwind + Recharts, in `frontend/`) covers all design-doc §22 sections: sustainability score with grade and component breakdown, cost/energy/carbon estimates, predicted utilization chart, current configuration, problems detected (failed constraint checks), constraint-gated recommendations with savings and a before/after score comparison, and the optimized YAML with colored diff and download. A guided **demo section** opens a two-level picker — choose *Kubernetes demos* or *Terraform demos*, then a well/moderate/heavy scenario — which stages the bundled manifest and pre-fills its canonical (editable) workload; custom uploads work exactly as before.
 
 ```bash
 cd frontend

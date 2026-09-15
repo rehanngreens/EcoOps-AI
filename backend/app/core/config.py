@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
 
     max_upload_size_bytes: int = 1_048_576
-    allowed_upload_extensions: str = ".yaml,.yml"
+    allowed_upload_extensions: str = ".yaml,.yml,.tf"
 
     database_url: str = "postgresql+psycopg://ecoops:ecoops@localhost:5432/ecoops"
     estimation_period_hours: float = Field(default=730.0, gt=0)

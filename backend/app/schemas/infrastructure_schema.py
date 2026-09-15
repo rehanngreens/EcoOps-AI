@@ -12,6 +12,15 @@ class InfrastructureConfiguration(BaseModel):
     memory_limit_gb: float | None = None
     autoscaling_enabled: bool = False
     container_image: str | None = None
+    # Terraform-specific fields (Phase 12). All optional so stored analyses
+    # and Kubernetes uploads validate unchanged; downstream services treat
+    # them as pass-through metadata.
+    cloud_provider: str | None = None
+    region: str | None = None
+    instance_type: str | None = None
+    instance_count: int | None = None
+    storage_gb: float | None = None
+    parser_warnings: list[str] | None = None
 
 
 class ValidationResponse(BaseModel):

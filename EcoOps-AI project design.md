@@ -1580,7 +1580,7 @@ PHASE 11:
 Frontend dashboard                                                 [DONE]
 
 PHASE 12:
-Terraform parser                                                   [pending]
+Terraform parser                                                   [DONE — AWS EC2 subset: aws_instance + provider region + ASG detection, instance-type metadata table, content-based format detection in /analyze and /validate; optimized-file generation remains Kubernetes-only with an explicit 400 for Terraform sources until Phase 16]
 
 PHASE 13:
 Docker Compose parser                                              [pending]
@@ -1652,7 +1652,7 @@ Revised-phase-mapping summary (explicit, as required):
 | Original phase | Revised phase | Status |
 |---|---|---|
 | 1–11 | 1–11 (unchanged) | DONE |
-| 12 (Terraform parser) | 12 (unchanged) | pending |
+| 12 (Terraform parser) | 12 (unchanged) | DONE (AWS EC2 subset) |
 | 13 (Docker Compose parser) | 13 (unchanged) | pending |
 | — (did not exist) | 14 (Workload Requirement Engine) | NEW |
 | — (did not exist) | 15 (Candidate Generator + evaluation) | NEW |
