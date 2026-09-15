@@ -81,12 +81,12 @@ export interface DemoPreset {
   id: string;
   label: string;
   description: string;
-  /** The IaC text (YAML or Terraform) staged for analysis. */
+  /** The IaC text (YAML, Terraform, or Compose) staged for analysis. */
   yaml: string;
   /** File name used when staging and sending the demo. */
   fileName: string;
   /** IaC family, used to group the demo section. */
-  format: "kubernetes" | "terraform";
+  format: "kubernetes" | "terraform" | "docker-compose";
   workload: WorkloadProfile;
 }
 
@@ -96,6 +96,9 @@ import heavyYaml from "../fixtures/deployment-heavy-overprovisioned.yaml?raw";
 import tfWell from "../fixtures/main-well-provisioned.tf?raw";
 import tfModerate from "../fixtures/main-moderate-overprovisioned.tf?raw";
 import tfHeavy from "../fixtures/main-heavy-overprovisioned.tf?raw";
+import composeWell from "../fixtures/compose-well-provisioned.yaml?raw";
+import composeModerate from "../fixtures/compose-moderate-overprovisioned.yaml?raw";
+import composeHeavy from "../fixtures/compose-heavy-overprovisioned.yaml?raw";
 
 /** Kubernetes demo scenarios. */
 export const KUBERNETES_PRESETS: DemoPreset[] = [
@@ -195,5 +198,58 @@ export const TERRAFORM_PRESETS: DemoPreset[] = [
   },
 ];
 
+/** Docker Compose demo scenarios (Phase 13). */
+export const COMPOSE_PRESETS: DemoPreset[] = [
+  {
+    id: "compose-well",
+    label: "Well-provisioned",
+    description: "2× 0.5c/512M — expect few recommendations",
+    yaml: composeWell,
+    fileName: "compose-well-provisioned.yaml",
+    format: "docker-compose",
+    workload: {
+      application_type: "rest-api",
+      expected_users: 1000,
+      traffic_level: "medium",
+      max_latency_ms: 200,
+      availability_target: 99.0,
+    },
+  },
+  {
+    id: "compose-moderate",
+    label: "Moderate overprovisioned",
+    description: "4× 2c/4G — some scale-down expected",
+    yaml: composeModerate,
+    fileName: "compose-moderate-overprovisioned.yaml",
+    format: "docker-compose",
+    workload: {
+      application_type: "web-application",
+      expected_users: 10000,
+      traffic_level: "medium",
+      max_latency_ms: 150,
+      availability_target: 99.9,
+    },
+  },
+  {
+    id: "compose-heavy",
+    label: "Heavy overprovisioned",
+    description: "8× 8c/16G + sidecar — expect big savings",
+    yaml: composeHeavy,
+    fileName: "compose-heavy-overprovisioned.yaml",
+    format: "docker-compose",
+    workload: {
+      application_type: "e-commerce",
+      expected_users: 10000,
+      traffic_level: "medium",
+      max_latency_ms: 150,
+      availability_target: 99.9,
+    },
+  },
+];
+
 /** Flat lookup kept for tests/debug tooling. */
-export const DEMO_PRESETS: DemoPreset[] = [...KUBERNETES_PRESETS, ...TERRAFORM_PRESETS];
+export const DEMO_PRESETS: DemoPreset[] = [
+  ...KUBERNETES_PRESETS,
+  ...TERRAFORM_PRESETS,
+  ...COMPOSE_PRESETS,
+];

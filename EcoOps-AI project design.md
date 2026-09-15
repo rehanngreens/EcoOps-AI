@@ -1583,7 +1583,7 @@ PHASE 12:
 Terraform parser                                                   [DONE — AWS EC2 subset: aws_instance + provider region + ASG detection, instance-type metadata table, content-based format detection in /analyze and /validate; optimized-file generation remains Kubernetes-only with an explicit 400 for Terraform sources until Phase 16]
 
 PHASE 13:
-Docker Compose parser                                              [pending]
+Docker Compose parser                                              [DONE — services-based subset: primary-service selection for multi-service files with visible warnings, deploy.replicas, v3 deploy.resources + v2 cpus/mem_limit syntaxes, Docker memory-unit semantics; detected structurally via top-level 'services:' since Compose and Kubernetes share the YAML extension; optimized-file generation remains Kubernetes-only with an explicit 400 until Phase 16]
 
 PHASE 14 (NEW — Mode B, part 1):
 Workload Requirement Engine
@@ -1653,7 +1653,7 @@ Revised-phase-mapping summary (explicit, as required):
 |---|---|---|
 | 1–11 | 1–11 (unchanged) | DONE |
 | 12 (Terraform parser) | 12 (unchanged) | DONE (AWS EC2 subset) |
-| 13 (Docker Compose parser) | 13 (unchanged) | pending |
+| 13 (Docker Compose parser) | 13 (unchanged) | DONE (services subset) |
 | — (did not exist) | 14 (Workload Requirement Engine) | NEW |
 | — (did not exist) | 15 (Candidate Generator + evaluation) | NEW |
 | — (did not exist) | 16 (IaC Generation + Target Selection) | NEW |

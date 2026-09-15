@@ -8,6 +8,11 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.parsers.docker_compose_parser import (
+    DockerComposeParserError,
+    parse_docker_compose,
+    validate_docker_compose,
+)
 from app.parsers.kubernetes_parser import (
     KubernetesParserError,
     parse_kubernetes_yaml,
@@ -94,18 +99,39 @@ def _looks_like_terraform(upload_text: str) -> bool:
     return bool(_HCL_SIGNATURE.search(upload_text))
 
 
+def _looks_like_compose(upload_text: str) -> bool:
+    """Structural Compose detection: a top-level 'services:' mapping.
+
+    Compose and Kubernetes share the .yaml/.yml extension, so the choice is
+    made by content: 'services:' -> Compose, 'kind:' -> Kubernetes.
+    """
+    return bool(re.search(r"^services\s*:", upload_text, re.MULTILINE))
+
+
 def _parse_upload(file: UploadFile, upload_text: str) -> InfrastructureConfiguration:
     """Detect the IaC format and parse with the matching parser.
 
-    .tf extensions always route to the Terraform parser; other files are
-    content-detected (HCL block signatures) so renamed files still parse,
-    and everything else falls through to the Kubernetes parser.
+    Order matters: .tf extensions or HCL signatures route to Terraform;
+    then a top-level 'services:' mapping routes to the Compose parser
+    (Compose and Kubernetes share the YAML extension, so this is decided
+    by structure, not suffix); everything else falls through to the
+    Kubernetes parser, preserving its existing error behavior.
     """
     suffix = Path(file.filename or "").suffix.lower()
     if suffix == ".tf" or _looks_like_terraform(upload_text):
         try:
             parsed = parse_terraform(upload_text)
         except TerraformParserError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(exc),
+            ) from exc
+        return InfrastructureConfiguration.model_validate(parsed)
+
+    if _looks_like_compose(upload_text):
+        try:
+            parsed = parse_docker_compose(upload_text)
+        except DockerComposeParserError as exc:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=str(exc),
@@ -135,8 +161,8 @@ def _ensure_kubernetes_source(configuration: InfrastructureConfiguration) -> Non
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
                 "Optimized configuration generation is currently supported "
-                "for Kubernetes sources only; Terraform support arrives with "
-                "the IaC generation phase (Phase 16)."
+                "for Kubernetes sources only; Terraform and Docker Compose "
+                "support arrives with the IaC generation phase (Phase 16)."
             ),
         )
 
@@ -175,6 +201,8 @@ async def validate_manifest(file: UploadFile) -> ValidationResponse:
     upload_text = _decode_upload(content)
     if Path(file.filename or "").suffix.lower() == ".tf" or _looks_like_terraform(upload_text):
         errors = validate_terraform(upload_text)
+    elif _looks_like_compose(upload_text):
+        errors = validate_docker_compose(upload_text)
     else:
         errors = validate_kubernetes_yaml(upload_text)
     return ValidationResponse(valid=not errors, errors=errors)

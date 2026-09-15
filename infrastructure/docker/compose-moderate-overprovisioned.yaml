@@ -1,0 +1,19 @@
+# Demo: moderately overprovisioned Docker Compose setup (design doc section 30, scenario 2).
+# 4 replicas x 2 CPU / 4G for the same workload profile as the well-provisioned demo.
+# Expected result: some scale-down recommendations.
+# Expected parser output (sanity check for unit tests):
+#   replicas: 4, cpu_request: 2.0, cpu_limit: 4.0,
+#   memory_request_gb: 4.0, memory_limit_gb: 8.0
+
+services:
+  api-backend:
+    image: ecommerce/api-backend:1.0.0
+    deploy:
+      replicas: 4
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 8g
+        reservations:
+          cpus: "2.0"
+          memory: 4g

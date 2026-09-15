@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import type { WorkloadProfile } from "../types/api";
 import {
+  COMPOSE_PRESETS,
   KUBERNETES_PRESETS,
   TERRAFORM_PRESETS,
   type DemoPreset,
@@ -9,7 +10,7 @@ import { Card } from "./ui/primitives";
 import { DEFAULT_WORKLOAD, WorkloadForm } from "./WorkloadForm";
 
 type StagedFile = { name: string; yaml: string } | null;
-type DemoFormat = "kubernetes" | "terraform";
+type DemoFormat = "kubernetes" | "terraform" | "docker-compose";
 
 const DEMO_FAMILIES: Array<{
   format: DemoFormat;
@@ -28,6 +29,12 @@ const DEMO_FAMILIES: Array<{
     title: "Terraform demos",
     blurb: "AWS EC2 configurations — full analysis; optimized generation is Kubernetes-only",
     presets: TERRAFORM_PRESETS,
+  },
+  {
+    format: "docker-compose",
+    title: "Docker Compose demos",
+    blurb: "Multi-service stacks — full analysis; optimized generation is Kubernetes-only",
+    presets: COMPOSE_PRESETS,
   },
 ];
 
@@ -122,7 +129,7 @@ export function UploadPanel({
         ) : (
           <>
             <p className="text-sm font-medium text-slate-700">
-              Drag &amp; drop a Kubernetes YAML or Terraform file here
+              Drag &amp; drop a Kubernetes YAML, Terraform, or Compose file here
             </p>
             <p className="mt-1 text-xs text-slate-400">or click to browse (.yaml / .yml / .tf)</p>
           </>

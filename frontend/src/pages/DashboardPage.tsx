@@ -116,9 +116,9 @@ export function DashboardPage({
           <p className="text-sm text-slate-600">
             This analysis is a <span className="font-medium">{analysis.configuration.source_type}</span>{" "}
             configuration. Optimized-file generation currently supports Kubernetes
-            sources; Terraform generation arrives with the IaC generation phase.
-            Predictions, estimates, constraints, and the sustainability score above
-            all apply in full.
+            sources; Terraform and Docker Compose generation arrive with the IaC
+            generation phase. Predictions, estimates, constraints, and the
+            sustainability score above all apply in full.
           </p>
         </Card>
       )}

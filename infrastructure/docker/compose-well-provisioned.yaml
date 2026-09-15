@@ -1,0 +1,24 @@
+# Demo: well-provisioned Docker Compose setup (design doc section 30, scenario 1).
+# 2 replicas x 0.5 CPU / 512M for a modest API workload.
+# Expected result: few or no recommendations.
+# Expected parser output (sanity check for unit tests):
+#   source_type: docker_compose
+#   application: api-backend
+#   replicas: 2
+#   cpu_request: 0.5
+#   cpu_limit: 1.0
+#   memory_request_gb: 0.5   # 512M -> binary 0.5 GiB
+#   memory_limit_gb: 1.0
+
+services:
+  api-backend:
+    image: ecommerce/api-backend:1.0.0
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1g
+        reservations:
+          cpus: "0.5"
+          memory: 512M

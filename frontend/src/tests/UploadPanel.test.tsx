@@ -3,6 +3,7 @@ import { vi, describe, it, expect } from "vitest";
 import { UploadPanel } from "../components/UploadPanel";
 import { DEFAULT_WORKLOAD } from "../components/WorkloadForm";
 import {
+  COMPOSE_PRESETS,
   DEMO_PRESETS,
   KUBERNETES_PRESETS,
   TERRAFORM_PRESETS,
@@ -67,6 +68,27 @@ describe("UploadPanel demo section", () => {
     const [yaml, , fileName] = onAnalyze.mock.calls[0];
     expect(yaml).toContain('resource "aws_instance"');
     expect(fileName).toBe("main-heavy-overprovisioned.tf");
+  });
+
+  it("choosing Docker Compose shows only Compose scenarios and stages compose content", () => {
+    const onAnalyze = vi.fn();
+    render(<UploadPanel onAnalyze={onAnalyze} busy={false} />);
+    enterDemoBrowser();
+    fireEvent.click(screen.getByTestId("demo-format-docker-compose"));
+
+    expect(screen.getByTestId("demo-scenarios-docker-compose")).toBeInTheDocument();
+    expect(screen.getByTestId("preset-compose-heavy")).toBeInTheDocument();
+    expect(screen.queryByTestId("preset-heavy")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("preset-tf-heavy")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("preset-compose-heavy"));
+    expect(screen.getByTestId("staged-file")).toHaveTextContent("compose-heavy-overprovisioned.yaml");
+    expect(screen.getByDisplayValue("e-commerce")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("analyze-button"));
+    const [yaml, , fileName] = onAnalyze.mock.calls[0];
+    expect(yaml).toContain("services:");
+    expect(fileName).toBe("compose-heavy-overprovisioned.yaml");
   });
 
   it("switching format swaps the scenario list; close collapses the whole section", () => {
@@ -156,9 +178,13 @@ describe("UploadPanel demo section", () => {
     expect(tfHeavy.yaml).toContain('instance_type = "m5.2xlarge"');
     expect(tfHeavy.yaml).toContain("count         = 8");
 
-    // Flat list exposes both families with unique ids.
-    expect(DEMO_PRESETS).toHaveLength(6);
-    expect(new Set(DEMO_PRESETS.map((p) => p.id)).size).toBe(6);
+    const composeHeavy = COMPOSE_PRESETS.find((preset) => preset.id === "compose-heavy")!;
+    expect(composeHeavy.yaml).toContain("replicas: 8");
+    expect(composeHeavy.yaml).toContain("services:");
+
+    // Flat list exposes all three families with unique ids.
+    expect(DEMO_PRESETS).toHaveLength(9);
+    expect(new Set(DEMO_PRESETS.map((p) => p.id)).size).toBe(9);
   });
 
   it("disables demo controls while busy", async () => {

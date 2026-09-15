@@ -68,9 +68,9 @@ Cost / energy / carbon estimation
 | --- | --- | --- |
 | Kubernetes YAML | Deployments, resource requests/limits, replicas, and autoscaling-related details | Implemented |
 | Terraform | AWS EC2 subset: `aws_instance` (instance type via an AWS metadata table, count, tags.Name, storage), `provider "aws"` region, ASG detection. Variable interpolation and other resource types are rejected with clear errors | Implemented (Phase 12) |
-| Docker Compose | Services, replicas, CPU, memory, and storage constraints | Planned (Phase 13) |
+| Docker Compose | `services` (primary-service selection for multi-service files with a visible warning), `deploy.replicas`, v3 `deploy.resources` limits/reservations plus v2-style `cpus:`/`mem_limit:`, Docker memory-unit semantics. Detected structurally (top-level `services:`) — no dedicated extension needed | Implemented (Phase 13) |
 
-Terraform analyses support the full prediction/estimation/constraint/score pipeline; optimized-manifest *generation* is Kubernetes-only until the IaC generation phase and returns an explicit 400 for Terraform sources.
+Terraform and Docker Compose analyses support the full prediction/estimation/constraint/score pipeline; optimized-manifest *generation* is Kubernetes-only until the IaC generation phase and returns an explicit 400 for other sources.
 
 ## Recommendation principles
 
@@ -180,7 +180,7 @@ Phases 1–11 are **done**. Revised roadmap (design doc §31):
 5. Add prediction, estimation, constraint, and recommendation services. (done — phases 5–9)
 6. Generate optimized YAML while preserving the original configuration. (done — phase 10)
 7. Build the dashboard and integrate the API. (done — phase 11)
-8. Add Terraform and Docker Compose parsers. (Terraform done — phase 12; Docker Compose pending — phase 13)
+8. Add Terraform and Docker Compose parsers. (done — phases 12–13)
 9. Workload-to-infrastructure generation: requirement engine, candidate generation/evaluation, IaC generation templates with target selection, and the Mode B API + dashboard entry points. (new phases 14–17)
 10. Test, containerize, and optionally deploy. (phases 18–21, renumbered from 14–17)
 
@@ -190,7 +190,7 @@ Keep modules small and independently testable. In particular, parsers, ML code, 
 
 ## Project status
 
-**Phases 1–12 implemented:** Kubernetes parsing, normalized features, dataset preprocessing, utilization-model training (including a documented synthetic Kubernetes-scale demand component, see `ml/synthetic_augment.py`), prediction API, transparent cost/energy/carbon estimation, the constraint engine (five configurable feasibility checks), the recommendation engine (constraint-gated candidate ranking with persisted results via `POST /analysis/{id}/optimize`), optimized YAML generation (`GET /analysis/{id}/optimized-config` returns the optimized manifest, a unified diff against the preserved original, and the change list), the weighted sustainability score (`GET /analysis/{id}/score`, disclosed methodology and configurable weights per design doc §23), the React dashboard visualizing the full pipeline, and the **Terraform parser** (Phase 12: AWS EC2 subset — `/analyze` and `/validate` auto-detect `.tf` content; analyses run the full pipeline; optimized-file generation stays Kubernetes-only with an explicit 400 for Terraform sources until Phase 16).
+**Phases 1–13 implemented:** Kubernetes parsing, normalized features, dataset preprocessing, utilization-model training (including a documented synthetic Kubernetes-scale demand component, see `ml/synthetic_augment.py`), prediction API, transparent cost/energy/carbon estimation, the constraint engine (five configurable feasibility checks), the recommendation engine (constraint-gated candidate ranking with persisted results via `POST /analysis/{id}/optimize`), optimized YAML generation (`GET /analysis/{id}/optimized-config` returns the optimized manifest, a unified diff against the preserved original, and the change list), the weighted sustainability score (`GET /analysis/{id}/score`, disclosed methodology and configurable weights per design doc §23), the React dashboard with a guided three-family demo section (Kubernetes / Terraform / Docker Compose), the **Terraform parser** (Phase 12: AWS EC2 subset with content-based `.tf` detection), and the **Docker Compose parser** (Phase 13: structural detection via top-level `services:`, v3 + v2 resource syntax, primary-service selection with visible warnings for multi-service files). Optimized-file generation stays Kubernetes-only with an explicit 400 for other sources until Phase 16.
 
 **Design revision 2 (two operating modes):** the design document now specifies Mode B — workload-to-infrastructure generation (new Phases 14–17, after the Terraform/Docker Compose parsers in Phases 12–13; integration/testing/Docker/AWS renumbered 18–21). See [EcoOps-AI project design.md](<EcoOps-AI project design.md>) for the authoritative specification, especially §4, §6, §27, §31, §32, §40, §43, and §44.
 
