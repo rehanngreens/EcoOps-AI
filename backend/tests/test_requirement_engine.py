@@ -152,6 +152,23 @@ class TestEstimateRequirements:
         assert result.replica_minimum == 2
         assert result.autoscaling_required is True
 
+    def test_user_capacity_raises_replica_minimum(self) -> None:
+        # Phase 8 user_capacity: ceil(users / (max_users_per_replica x
+        # traffic multiplier)) = ceil(5000/2000) = 3 replicas at medium.
+        result = estimate_requirements(_workload(expected_users=5000))
+        assert result.replica_minimum == 3
+        assert any("user-capacity" in note for note in result.notes)
+
+    def test_user_capacity_floors_candidates_not_born_failing(self) -> None:
+        # The exact scenario that motivated the floor: 5000 users must never
+        # produce 2-replica candidates that fail the Phase 8 user check.
+        from app.services.constraint_service import parameters_from_settings
+
+        parameters = parameters_from_settings()
+        multiplier = parameters.traffic_multipliers["medium"]
+        capacity = 3 * parameters.max_users_per_replica * multiplier
+        assert capacity >= 5000
+
     def test_fixed_replicas_size_for_peak(self) -> None:
         # 300 avg x 2 peak = 600 rps sizing -> 600/150 = 4 raw -> 4.0 cores;
         # per-replica capacity 150 x 4 = 600 rps -> ceil(600/600) = 1 replica.

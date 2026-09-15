@@ -15,9 +15,10 @@ Design rules from the design doc:
 - Latency and availability requirements are RECORDED, not consumed here:
   they are constraint-engine inputs (Phase 8 services) later in the
   pipeline. Storage is passed through, never invented.
-- Replica minimums reuse the constraint engine's availability tiers as the
-  single source of truth, so Mode B candidates cannot be born failing the
-  Phase 8 availability check.
+- Replica minimums reuse the constraint engine's availability tiers AND
+  its user-capacity formula as the single source of truth, so Mode B
+  candidates cannot be born failing the Phase 8 availability or
+  user-capacity checks.
 - Do NOT train a second ML model to size infrastructure; the existing
   utilization model provides evidence downstream (section 44.1).
 
@@ -120,7 +121,27 @@ def availability_minimum_replicas(availability_target: float, autoscaling: bool)
     return required
 
 
-def estimate_requirements(workload: WorkloadProfile) -> ResourceRequirements:
+def user_capacity_minimum_replicas(workload: WorkloadProfile, settings=None) -> int:
+    """Replica floor from the Phase 8 user-capacity check (single source of truth).
+
+    The constraint engine's user_capacity check requires replicas x
+    max_users_per_replica x traffic_multiplier >= expected_users. The engine
+    applies the same formula here so Mode B candidates are not born failing
+    that check.
+    """
+    from app.services.constraint_service import parameters_from_settings
+
+    parameters = parameters_from_settings(settings)
+    multiplier = parameters.traffic_multipliers.get(workload.traffic_level, 1.0)
+    per_replica = parameters.max_users_per_replica * multiplier
+    if per_replica <= 0:
+        return 1
+    return max(1, math.ceil(workload.expected_users / per_replica))
+
+
+def estimate_requirements(
+    workload: WorkloadProfile, settings=None
+) -> ResourceRequirements:
     """Derive deterministic resource requirements from a v2 workload profile."""
     rule = _rule_for(workload.application_type)
     notes: list[str] = []
@@ -176,7 +197,7 @@ def estimate_requirements(workload: WorkloadProfile) -> ResourceRequirements:
         f"{raw_memory:g} -> {memory_gb:g} GiB (ladder round-up)"
     )
 
-    # --- Replicas: availability tiers + autoscaling floor, then throughput. ---
+    # --- Replicas: availability tiers + user capacity + autoscaling floor. ---
     autoscaling_required = bool(workload.autoscaling_required)
     replica_minimum = availability_minimum_replicas(
         workload.availability_target, autoscaling_required
@@ -186,6 +207,15 @@ def estimate_requirements(workload: WorkloadProfile) -> ResourceRequirements:
         f"{workload.availability_target:g}%"
         + (" with autoscaling floor 2" if autoscaling_required else "")
     )
+
+    user_floor = user_capacity_minimum_replicas(workload, settings)
+    if user_floor > replica_minimum:
+        replica_minimum = user_floor
+        notes.append(
+            f"Replica minimum raised to {replica_minimum} by the user-capacity "
+            f"rule ({workload.expected_users:g} users / "
+            f"max_users_per_replica x traffic multiplier)"
+        )
 
     per_replica_rps = rule["rps_per_core"] * cpu_cores
     if per_replica_rps > 0 and autoscaling_required:

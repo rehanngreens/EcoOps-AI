@@ -1536,7 +1536,7 @@ Do NOT attempt to build everything simultaneously.
 
 Follow this order.
 
-STATUS (Revision 2): Phases 1–14 are COMPLETE and verified. The order below is the authoritative continuation. Phases 12 and 13 keep their original numbers and intent. Mode B is delivered in NEW Phases 14–17, after the core optimization pipeline is stable (including both remaining parsers) and before final integration/testing. The old Phases 14–17 are renumbered to 18–21 with unchanged content — this is the only renumbering, it affects only PENDING phases, and no completed phase number changes.
+STATUS (Revision 2): Phases 1–15 are COMPLETE and verified. The order below is the authoritative continuation. Phases 12 and 13 keep their original numbers and intent. Mode B is delivered in NEW Phases 14–17, after the core optimization pipeline is stable (including both remaining parsers) and before final integration/testing. The old Phases 14–17 are renumbered to 18–21 with unchanged content — this is the only renumbering, it affects only PENDING phases, and no completed phase number changes.
 
 PHASE 1:
 Repository + project structure                                    [DONE]
@@ -1599,7 +1599,7 @@ Deterministic resource requirement estimation (Section 44.1)
 WorkloadProfile v2 schema finalized (additive, Mode A unaffected)
 
 PHASE 15 (NEW — Mode B, part 2):
-Candidate Infrastructure Generator + evaluation loop
+Candidate Infrastructure Generator + evaluation loop   [DONE — backend/app/services/generation/candidate_generator.py produces the curated deterministic candidate set (lean/balanced/headroom/elastic along the sizing and replica axes, conditional economy-storage excluded for database/streaming, plus a Terraform-style vm-baseline chosen from the Phase 12 instance-metadata table) as normalized InfrastructureConfigurations; backend/app/services/generation/evaluation_service.py reuses the EXISTING pipeline per candidate (feature extraction -> ML prediction -> estimation -> Phase 8 constraints -> weighted score), with priority-derived ScoreWeights (low/medium/high multipliers over the settings base, normalized and disclosed), hard eligibility gating, deterministic ranking (score, then cost/energy/CPU tie-breaks), and the all-rejected "infeasible" path with per-check explanations; the Phase 14 requirement engine gained a user-capacity replica floor reusing the constraint engine's formula so candidates are never born failing Phase 8 checks; predictor mocked in tests for CI parity; verified 211 tests passing with and without model artifacts]
 
 Goal:
 
@@ -1655,7 +1655,7 @@ Revised-phase-mapping summary (explicit, as required):
 | 12 (Terraform parser) | 12 (unchanged) | DONE (AWS EC2 subset) |
 | 13 (Docker Compose parser) | 13 (unchanged) | DONE (services subset) |
 | — (did not exist) | 14 (Workload Requirement Engine) | DONE |
-| — (did not exist) | 15 (Candidate Generator + evaluation) | NEW |
+| — (did not exist) | 15 (Candidate Generator + evaluation) | DONE |
 | — (did not exist) | 16 (IaC Generation + Target Selection) | NEW |
 | — (did not exist) | 17 (Mode B API + dashboard) | NEW |
 | 14 (Full integration) | 18 | renumbered |
