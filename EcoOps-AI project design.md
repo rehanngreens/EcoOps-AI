@@ -1536,7 +1536,7 @@ Do NOT attempt to build everything simultaneously.
 
 Follow this order.
 
-STATUS (Revision 2): Phases 1–11 are COMPLETE and verified. The order below is the authoritative continuation. Phases 12 and 13 keep their original numbers and intent. Mode B is delivered in NEW Phases 14–17, after the core optimization pipeline is stable (including both remaining parsers) and before final integration/testing. The old Phases 14–17 are renumbered to 18–21 with unchanged content — this is the only renumbering, it affects only PENDING phases, and no completed phase number changes.
+STATUS (Revision 2): Phases 1–14 are COMPLETE and verified. The order below is the authoritative continuation. Phases 12 and 13 keep their original numbers and intent. Mode B is delivered in NEW Phases 14–17, after the core optimization pipeline is stable (including both remaining parsers) and before final integration/testing. The old Phases 14–17 are renumbered to 18–21 with unchanged content — this is the only renumbering, it affects only PENDING phases, and no completed phase number changes.
 
 PHASE 1:
 Repository + project structure                                    [DONE]
@@ -1586,7 +1586,7 @@ PHASE 13:
 Docker Compose parser                                              [DONE — services-based subset: primary-service selection for multi-service files with visible warnings, deploy.replicas, v3 deploy.resources + v2 cpus/mem_limit syntaxes, Docker memory-unit semantics; detected structurally via top-level 'services:' since Compose and Kubernetes share the YAML extension; optimized-file generation remains Kubernetes-only with an explicit 400 until Phase 16]
 
 PHASE 14 (NEW — Mode B, part 1):
-Workload Requirement Engine
+Workload Requirement Engine                         [DONE — WorkloadProfile v2 additive optional fields (average_rps, peak_rps, traffic_pattern incl. "bursty", storage_gb, autoscaling_required, performance/cost/sustainability priorities) with peak>=average cross-validation, v1 payloads and the ML feature pipeline untouched; backend/app/services/generation/requirement_engine.py with the documented REQUIREMENT_RULES table, discrete CPU/memory sizing ladders, availability-tier replica minimums imported from the constraint engine as the single source of truth, peak factors (derived from RPS ratio when given, pattern/app-type defaults otherwise), and validate_workload_requirements advisory checks for the Phase 17 endpoint; "bursty" never reaches v1 traffic_level; verified 177 tests passing with and without model artifacts]
 
 Goal:
 
@@ -1654,7 +1654,7 @@ Revised-phase-mapping summary (explicit, as required):
 | 1–11 | 1–11 (unchanged) | DONE |
 | 12 (Terraform parser) | 12 (unchanged) | DONE (AWS EC2 subset) |
 | 13 (Docker Compose parser) | 13 (unchanged) | DONE (services subset) |
-| — (did not exist) | 14 (Workload Requirement Engine) | NEW |
+| — (did not exist) | 14 (Workload Requirement Engine) | DONE |
 | — (did not exist) | 15 (Candidate Generator + evaluation) | NEW |
 | — (did not exist) | 16 (IaC Generation + Target Selection) | NEW |
 | — (did not exist) | 17 (Mode B API + dashboard) | NEW |

@@ -102,7 +102,9 @@ def test_analyze_with_workload_returns_features() -> None:
     assert analyze_response.status_code == 201
     analyze_data = analyze_response.json()
 
-    assert analyze_data["workload"] == HEAVY_WORKLOAD
+    # Phase 14 added optional v2 workload fields to the echoed profile, so
+    # compare the submitted v1 fields as a subset instead of exact equality.
+    assert HEAVY_WORKLOAD.items() <= analyze_data["workload"].items()
     features = analyze_data["features"]
     assert features["application_type_code"] == 2
     assert features["traffic_score"] == 2
@@ -118,7 +120,8 @@ def test_analyze_with_workload_returns_features() -> None:
     assert features_response.status_code == 200
     features_data = features_response.json()
     assert features_data["analysis_id"] == analysis_id
-    assert features_data["workload"] == HEAVY_WORKLOAD
+    # v2 fields are additive in the echoed profile; compare v1 fields as a subset.
+    assert HEAVY_WORKLOAD.items() <= features_data["workload"].items()
     assert analyze_data["prediction"]["model_type"] == "RandomForestRegressor"
     assert features_data["features"] == features
 
