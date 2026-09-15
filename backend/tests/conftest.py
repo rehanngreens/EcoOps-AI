@@ -9,6 +9,8 @@ import pytest
 from app.core.config import get_settings
 from app.core.database import Base, SessionLocal, engine
 from app.models.analysis import Analysis
+from app.models.generation import GenerationRecord
+from app.models.recommendation import RecommendationItemRecord, RecommendationSetRecord
 
 get_settings.cache_clear()
 
@@ -21,8 +23,11 @@ Base.metadata.create_all(bind=engine)
 
 
 @pytest.fixture(autouse=True)
-def clean_analyses() -> None:
+def clean_tables() -> None:
     with SessionLocal() as session:
+        session.query(RecommendationItemRecord).delete()
+        session.query(RecommendationSetRecord).delete()
+        session.query(GenerationRecord).delete()
         session.query(Analysis).delete()
         session.commit()
     yield

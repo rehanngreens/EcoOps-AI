@@ -1536,7 +1536,7 @@ Do NOT attempt to build everything simultaneously.
 
 Follow this order.
 
-STATUS (Revision 2): Phases 1–16 are COMPLETE and verified. The order below is the authoritative continuation. Phases 12 and 13 keep their original numbers and intent. Mode B is delivered in NEW Phases 14–17, after the core optimization pipeline is stable (including both remaining parsers) and before final integration/testing. The old Phases 14–17 are renumbered to 18–21 with unchanged content — this is the only renumbering, it affects only PENDING phases, and no completed phase number changes.
+STATUS (Revision 2): Phases 1–17 are COMPLETE and verified. The order below is the authoritative continuation. Phases 12 and 13 keep their original numbers and intent. Mode B is delivered in NEW Phases 14–17, after the core optimization pipeline is stable (including both remaining parsers) and before final integration/testing. The old Phases 14–17 are renumbered to 18–21 with unchanged content — this is the only renumbering, it affects only PENDING phases, and no completed phase number changes.
 
 PHASE 1:
 Repository + project structure                                    [DONE]
@@ -1625,15 +1625,7 @@ Round-trip validation through the Phase 2/12/13 parsers (Section 44.6)
 "Let EcoOps AI choose" explicit rules (Section 44.4)
 
 PHASE 17 (NEW — Mode B, part 4):
-Mode B API + dashboard workflow
-
-Goal:
-
-POST /api/v1/generate and the GET/POST generation endpoints (Section 27)
-    ↓
-Two-entry-point landing page + generation form + result screen (Section 22)
-    ↓
-End-to-end Workflow B demo (Scenarios 4–5)
+Mode B API + dashboard workflow                      [DONE — POST /api/v1/generate runs the full pipeline (requirement engine -> candidates -> evaluation -> target selection -> IaC rendering) and persists everything in the new `generations` table (migration 005) including rejected candidates; GET /generation/{id} replays a stored generation without re-running the pipeline, /configuration returns the architecture summary, /optimize re-ranks with the stored target; infeasible generations are an explicit 422 with per-check explanations and are still persisted; invalid targets 400, unknown ids 404; frontend gains the two-entry landing ("Analyze existing infrastructure" / "Create sustainable infrastructure"), a workload-only form (no IaC knowledge needed) with target selection incl. "Let EcoOps AI choose", and a result screen with architecture summary, why-this-configuration, impact estimates, rejected-candidate list, and validated-artifact preview/download; predictor mocked in tests for CI parity; 261 backend + 34 frontend tests passing, live smoke verified all endpoints end-to-end with the real model and Mode A regression clean]
 
 PHASE 18 (was 14):
 Full integration                                                   [pending]
@@ -1657,7 +1649,7 @@ Revised-phase-mapping summary (explicit, as required):
 | — (did not exist) | 14 (Workload Requirement Engine) | DONE |
 | — (did not exist) | 15 (Candidate Generator + evaluation) | DONE |
 | — (did not exist) | 16 (IaC Generation + Target Selection) | DONE |
-| — (did not exist) | 17 (Mode B API + dashboard) | NEW |
+| — (did not exist) | 17 (Mode B API + dashboard) | DONE |
 | 14 (Full integration) | 18 | renumbered |
 | 15 (Testing) | 19 | renumbered |
 | 16 (Dockerization) | 20 | renumbered |

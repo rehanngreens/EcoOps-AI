@@ -1,5 +1,6 @@
 import type {
   AnalyzeResponse,
+  GenerateResponse,
   OptimizedConfigResponse,
   OptimizeResponse,
   ValidationResponse,
@@ -24,12 +25,39 @@ async function handleResponse<T>(response: Response): Promise<T> {
     try {
       const body = await response.json();
       if (typeof body?.detail === "string") detail = body.detail;
+      else if (body?.detail && typeof body?.detail === "object")
+        return (await response.json()) as T; // handled by callers (infeasible 422)
     } catch {
       // non-JSON error body; keep the generic message
     }
     throw new ApiError(response.status, detail);
   }
   return (await response.json()) as T;
+}
+
+export async function generateInfrastructure(
+  workload: WorkloadProfile,
+  target: string | null,
+): Promise<GenerateResponse> {
+  const response = await fetch(`${API_BASE}/api/v1/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ workload, target }),
+  });
+  if (!response.ok) {
+    // The 422 infeasible path returns a structured object detail.
+    const body = await response.json().catch(() => null);
+    const detail = body?.detail;
+    if (response.status === 422 && detail && typeof detail === "object") {
+      const err = new ApiError(422, detail.explanation ?? "Infeasible generation");
+      (err as ApiError & { infeasible?: unknown }).infeasible = detail;
+      throw err;
+    }
+    const message =
+      typeof detail === "string" ? detail : `Generation failed (${response.status})`;
+    throw new ApiError(response.status, message);
+  }
+  return (await response.json()) as GenerateResponse;
 }
 
 export async function analyzeManifest(

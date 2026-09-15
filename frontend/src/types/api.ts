@@ -70,6 +70,14 @@ export interface WorkloadProfile {
   traffic_level: string;
   max_latency_ms: number;
   availability_target: number;
+  average_rps?: number | null;
+  peak_rps?: number | null;
+  traffic_pattern?: string | null;
+  storage_gb?: number | null;
+  autoscaling_required?: boolean | null;
+  performance_priority?: string;
+  cost_priority?: string;
+  sustainability_priority?: string;
 }
 
 export interface FeatureVector {
@@ -191,4 +199,76 @@ export interface OptimizedConfigResponse {
 export interface ValidationResponse {
   valid: boolean;
   errors: string[];
+}
+
+// ---- Mode B generation (Phases 15-17) ----
+
+export type GenerationTarget =
+  | "kubernetes"
+  | "terraform"
+  | "docker_compose"
+  | "terraform+kubernetes";
+
+export interface ResourceRequirements {
+  cpu_cores: number;
+  memory_gb: number;
+  replica_estimate: number;
+  replica_minimum: number;
+  storage_gb: number | null;
+  autoscaling_required: boolean;
+  peak_factor: number;
+  notes: string[];
+}
+
+export interface TargetSelection {
+  target: GenerationTarget;
+  source: "user" | "auto";
+  explanation: string;
+}
+
+export interface GeneratedArtifact {
+  target: GenerationTarget;
+  filename: string;
+  content: string;
+  round_trip_valid: boolean;
+  notes: string[];
+}
+
+export interface GenerationEvaluation {
+  status: "recommended" | "infeasible";
+  requirements: ResourceRequirements;
+  candidates: Array<{
+    plan: {
+      variant: string;
+      summary: string;
+      configuration: InfrastructureConfiguration;
+    };
+    prediction: UtilizationPrediction;
+    estimation: SustainabilityEstimation;
+    constraints: ConstraintEvaluation;
+    score: SustainabilityScore;
+    eligible: boolean;
+    rejection_reasons: string[];
+  }>;
+  selected_index: number | null;
+  weights_used: Record<string, number>;
+  ranking_explanation: string;
+  infeasibility_explanation: string | null;
+  disclaimer: string;
+}
+
+export interface GenerateResponse {
+  generation_id: string;
+  status: string;
+  selected_configuration: InfrastructureConfiguration | null;
+  target_selection: TargetSelection;
+  requirements: ResourceRequirements;
+  artifacts: GeneratedArtifact[];
+  evaluation: GenerationEvaluation;
+}
+
+export interface GenerationInfeasibleError {
+  generation_id: string;
+  error: "infeasible";
+  explanation: string;
 }

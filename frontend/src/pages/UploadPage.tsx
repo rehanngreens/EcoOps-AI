@@ -5,7 +5,13 @@ import { ErrorBanner, Spinner } from "../components/ui/primitives";
 import { analyzeManifest } from "../services/apiClient";
 import type { AnalyzeResponse } from "../types/api";
 
-export function UploadPage({ onAnalyzed }: { onAnalyzed: (analysis: AnalyzeResponse) => void }) {
+export function UploadPage({
+  onAnalyzed,
+  onBack,
+}: {
+  onAnalyzed: (analysis: AnalyzeResponse) => void;
+  onBack?: () => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,6 +42,17 @@ export function UploadPage({ onAnalyzed }: { onAnalyzed: (analysis: AnalyzeRespo
       {error && <ErrorBanner message={error} />}
       {busy && <Spinner label="Parsing, predicting, estimating…" />}
       <UploadPanel onAnalyze={analyze} busy={busy} />
+      {onBack && (
+        <div className="text-center">
+          <button
+            type="button"
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-white"
+            onClick={onBack}
+          >
+            ← Back
+          </button>
+        </div>
+      )}
     </div>
   );
 }
