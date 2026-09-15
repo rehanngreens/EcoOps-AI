@@ -1536,7 +1536,7 @@ Do NOT attempt to build everything simultaneously.
 
 Follow this order.
 
-STATUS (Revision 2): Phases 1–15 are COMPLETE and verified. The order below is the authoritative continuation. Phases 12 and 13 keep their original numbers and intent. Mode B is delivered in NEW Phases 14–17, after the core optimization pipeline is stable (including both remaining parsers) and before final integration/testing. The old Phases 14–17 are renumbered to 18–21 with unchanged content — this is the only renumbering, it affects only PENDING phases, and no completed phase number changes.
+STATUS (Revision 2): Phases 1–16 are COMPLETE and verified. The order below is the authoritative continuation. Phases 12 and 13 keep their original numbers and intent. Mode B is delivered in NEW Phases 14–17, after the core optimization pipeline is stable (including both remaining parsers) and before final integration/testing. The old Phases 14–17 are renumbered to 18–21 with unchanged content — this is the only renumbering, it affects only PENDING phases, and no completed phase number changes.
 
 PHASE 1:
 Repository + project structure                                    [DONE]
@@ -1612,7 +1612,7 @@ Reuse feature extraction + ML prediction + estimation + constraint engine + scor
 Persisted candidate set with per-candidate results
 
 PHASE 16 (NEW — Mode B, part 3):
-IaC Generation Engine + Target Selection
+IaC Generation Engine + Target Selection            [DONE — backend/app/services/generation/target_selector.py implements the section 44.4 first-match-wins rule list (batch->Compose; database->TF+K8s or TF-alone without storage; autoscaling+bursty/e-commerce/streaming->K8s HPA; ML/AI-inference->K8s; plain autoscaling->K8s; >=100k users or >=99.9% availability->TF+K8s; else Compose) with explicit user choice bypassing the rules and invalid targets rejected; backend/app/services/generation/iac_templates.py renders deterministic literal-value artifacts from the repo's infrastructure/ manifest shapes (Kubernetes Deployment + annotation-based autoscaling, Terraform aws_instance+provider with gp3 root volume, Docker Compose v3 deploy.resources, and the TF+K8s combo emitting BOTH artifacts); backend/app/services/generation/iac_generation_service.py enforces the MANDATORY section 44.6 round-trip guarantee: every artifact is re-parsed through the SAME parser used for user uploads and must reproduce the candidate's resource fields exactly (per-target field sets), with parser raises and undersized/unrenderable shapes wrapped as generation failures so nothing unvalidated is returned; instance-type selection lives once in aws_instance_metadata.smallest_covering_instance_type shared by the Phase 15 VM baseline and the Terraform template; cross-target normalization (container limits, autoscaling drop with visible note) verified; 248 tests passing with and without model artifacts]
 
 Goal:
 
@@ -1656,7 +1656,7 @@ Revised-phase-mapping summary (explicit, as required):
 | 13 (Docker Compose parser) | 13 (unchanged) | DONE (services subset) |
 | — (did not exist) | 14 (Workload Requirement Engine) | DONE |
 | — (did not exist) | 15 (Candidate Generator + evaluation) | DONE |
-| — (did not exist) | 16 (IaC Generation + Target Selection) | NEW |
+| — (did not exist) | 16 (IaC Generation + Target Selection) | DONE |
 | — (did not exist) | 17 (Mode B API + dashboard) | NEW |
 | 14 (Full integration) | 18 | renumbered |
 | 15 (Testing) | 19 | renumbered |

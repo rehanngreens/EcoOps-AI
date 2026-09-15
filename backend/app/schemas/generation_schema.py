@@ -15,6 +15,8 @@ from app.schemas.unified_schema import SustainabilityEstimation, UtilizationPred
 
 GenerationStatus = str  # "recommended" | "infeasible" (values documented below)
 
+GenerationTarget = str  # "kubernetes" | "terraform" | "docker_compose" | "terraform+kubernetes"
+
 
 class ResourceRequirementsModel(BaseModel):
     """Serializable mirror of the Phase 14 engine's ResourceRequirements."""
@@ -65,4 +67,33 @@ class GenerationEvaluation(BaseModel):
     weights_used: dict[str, float]
     ranking_explanation: str
     infeasibility_explanation: str | None = None
+    disclaimer: str
+
+
+class TargetSelection(BaseModel):
+    """How the IaC generation target was chosen (section 44.4)."""
+
+    target: GenerationTarget
+    source: str  # "user" | "auto"
+    explanation: str
+
+
+class GeneratedArtifact(BaseModel):
+    """One rendered, round-trip-validated IaC artifact (section 44.6)."""
+
+    target: GenerationTarget
+    filename: str
+    content: str
+    round_trip_valid: bool
+    notes: list[str] = Field(default_factory=list)
+
+
+class GenerationResult(BaseModel):
+    """Full Mode B output: evaluated candidates + generated IaC (Phases 15-16)."""
+
+    generation_id: str
+    evaluation: GenerationEvaluation
+    target_selection: TargetSelection
+    artifacts: list[GeneratedArtifact]
+    selected_configuration: InfrastructureConfiguration
     disclaimer: str

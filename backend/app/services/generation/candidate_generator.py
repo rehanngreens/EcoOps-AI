@@ -16,7 +16,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.parsers.aws_instance_metadata import _INSTANCE_TABLE
+from app.parsers.aws_instance_metadata import (
+    get_instance_type,
+    smallest_covering_instance_type,
+)
 from app.schemas.generation_schema import CandidatePlan, ResourceRequirementsModel
 from app.schemas.infrastructure_schema import InfrastructureConfiguration
 from app.schemas.workload_schema import WorkloadProfile
@@ -39,9 +42,8 @@ VM_BASELINE_REGION = "us-east-1"
 # Application types that must keep full requested storage (section 44.2).
 STORAGE_CRITICAL_TYPES = {"database", "streaming"}
 
-# Instance families searched for the VM baseline, in preference order
-# (balanced general-purpose first, then compute/memory optimized).
-_VM_FAMILY_PREFERENCE = ("m5", "m6i", "t3", "t3a", "c5", "c6i", "r5", "r6i")
+# Instance families searched for the VM baseline live in
+# aws_instance_metadata (_FAMILY_PREFERENCE) alongside the table itself.
 
 # Storage steps for the economy variant (GB, documented ladder).
 STORAGE_LADDER: tuple[float, ...] = (
@@ -121,25 +123,22 @@ def _vm_baseline_plan(
     requirements: ResourceRequirements,
 ) -> CandidatePlan | None:
     """Terraform-style VM baseline candidate, or None if nothing fits the table."""
-    per_replica_cpu = requirements.cpu_cores
-    per_replica_memory = requirements.memory_gb
-
-    chosen: tuple[str, int, int] | None = None
-    for family in _VM_FAMILY_PREFERENCE:
-        for size, spec in _INSTANCE_TABLE.get(family, {}).items():
-            if spec.vcpu >= per_replica_cpu and spec.memory_gib >= per_replica_memory:
-                if chosen is None or (spec.vcpu, spec.memory_gib) < (chosen[1], chosen[2]):
-                    chosen = (f"{family}.{size}", spec.vcpu, spec.memory_gib)
-    if chosen is None:
+    instance_type = smallest_covering_instance_type(
+        requirements.cpu_cores, requirements.memory_gb
+    )
+    if instance_type is None:
         return None
-
-    instance_type, vcpu, memory_gib = chosen
+    spec, _ = get_instance_type(instance_type)
+    vcpu, memory_gib = spec.vcpu, spec.memory_gib
     # Fixed VM sizes rarely match the estimate exactly; call the headroom out
     # honestly in the summary instead of implying an exact fit.
-    overprovisioned = (vcpu, memory_gib) != (per_replica_cpu, per_replica_memory)
+    overprovisioned = (vcpu, memory_gib) != (
+        requirements.cpu_cores,
+        requirements.memory_gb,
+    )
     note = (
-        f" (smallest listed type covering {per_replica_cpu:g} cores / "
-        f"{per_replica_memory:g} GiB — some headroom is inherent to fixed VM sizes)"
+        f" (smallest listed type covering {requirements.cpu_cores:g} cores / "
+        f"{requirements.memory_gb:g} GiB — some headroom is inherent to fixed VM sizes)"
         if overprovisioned
         else ""
     )

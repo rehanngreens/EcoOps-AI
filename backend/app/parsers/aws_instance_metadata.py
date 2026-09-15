@@ -134,3 +134,25 @@ def get_instance_type(name: str) -> tuple[InstanceSpec, str | None] | None:
         f"generation or clock speed)."
     )
     return fallback_table[size], warning
+
+
+# Families searched by smallest_covering_instance_type, in preference order
+# (balanced general-purpose first, then compute/memory optimized).
+_FAMILY_PREFERENCE = ("m5", "m6i", "t3", "t3a", "c5", "c6i", "r5", "r6i")
+
+
+def smallest_covering_instance_type(vcpu: float, memory_gib: float) -> str | None:
+    """Smallest listed instance type covering both requirements.
+
+    Deterministic: families in preference order, and within a family the
+    (vcpu, memory) pair minimized. Returns None when nothing in the table
+    covers the requirement — callers must handle that explicitly rather
+    than emit an undersized guess.
+    """
+    chosen: tuple[str, int, int] | None = None
+    for family in _FAMILY_PREFERENCE:
+        for size, spec in _INSTANCE_TABLE.get(family, {}).items():
+            if spec.vcpu >= vcpu and spec.memory_gib >= memory_gib:
+                if chosen is None or (spec.vcpu, spec.memory_gib) < (chosen[1], chosen[2]):
+                    chosen = (f"{family}.{size}", spec.vcpu, spec.memory_gib)
+    return chosen[0] if chosen else None
