@@ -74,10 +74,18 @@ def test_features_helper_builds_valid_vector() -> None:
     assert features.replicas == 2
 
 
-def test_scores_for_includes_all_components_and_weights() -> None:
+def test_scores_for_includes_all_components_and_weights(monkeypatch: pytest.MonkeyPatch) -> None:
     from app.schemas.infrastructure_schema import InfrastructureConfiguration
     from app.schemas.workload_schema import WorkloadProfile
     from app.services import recommendation_service
+
+    # CI runners have no trained model artifacts (ml/models/ is gitignored);
+    # these assertions are about the score's shape, not the predictions.
+    monkeypatch.setattr(
+        recommendation_service.prediction_service,
+        "predict_utilization",
+        lambda _: _prediction(),
+    )
 
     configuration = InfrastructureConfiguration.model_validate(
         {
