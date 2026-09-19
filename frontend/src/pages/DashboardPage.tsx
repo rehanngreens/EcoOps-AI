@@ -111,39 +111,23 @@ export function DashboardPage({
         <ProblemsPanel analysis={analysis} />
       </div>
 
-      {analysis.configuration.source_type !== "kubernetes" && (
-        <Card title="Optimized configuration">
-          <p className="text-sm text-slate-600">
-            This analysis is a <span className="font-medium">{analysis.configuration.source_type}</span>{" "}
-            configuration. Optimized-file generation currently supports Kubernetes
-            sources; Terraform and Docker Compose generation arrive with the IaC
-            generation phase. Predictions, estimates, constraints, and the
-            sustainability score above all apply in full.
-          </p>
-        </Card>
-      )}
+      <Card title="Optimization">
+        <RecommendationTrigger
+          onRun={handleOptimize}
+          busy={optimizeBusy}
+          hasRun={optimize !== null}
+        />
+      </Card>
 
-      {analysis.configuration.source_type === "kubernetes" && (
-        <>
-          <Card title="Optimization">
-            <RecommendationTrigger
-              onRun={handleOptimize}
-              busy={optimizeBusy}
-              hasRun={optimize !== null}
-            />
-          </Card>
+      <RecommendationPanel optimize={optimize} loading={optimizeBusy} />
 
-          <RecommendationPanel optimize={optimize} loading={optimizeBusy} />
-
-          {optimize?.recommendation_set.status === "recommended" && (
-            <OptimizedConfigPanel
-              config={optimizedConfig}
-              loading={configBusy}
-              error={configError}
-              onGenerate={handleGenerateConfig}
-            />
-          )}
-        </>
+      {optimize?.recommendation_set.status === "recommended" && (
+        <OptimizedConfigPanel
+          config={optimizedConfig}
+          loading={configBusy}
+          error={configError}
+          onGenerate={handleGenerateConfig}
+        />
       )}
     </div>
   );

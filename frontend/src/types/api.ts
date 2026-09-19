@@ -193,6 +193,8 @@ export interface OptimizedConfigResponse {
   optimized_yaml: string;
   diff: string[];
   changes: ConfigChange[];
+  /** Per-target adaptation notices (Terraform/Compose paths, Phase 18). */
+  notes: string[];
   disclaimer: string;
 }
 

@@ -10,6 +10,13 @@ function diffLineClass(line: string): string {
   return "text-slate-600";
 }
 
+function suggestedFileName(config: OptimizedConfigResponse): string {
+  const body = config.optimized_yaml;
+  if (body.includes('resource "aws_instance"')) return "main-optimized.tf";
+  if (body.trimStart().startsWith("services:")) return "docker-compose-optimized.yaml";
+  return "deployment-optimized.yaml";
+}
+
 export function OptimizedConfigPanel({
   config,
   loading,
@@ -23,13 +30,17 @@ export function OptimizedConfigPanel({
 }) {
   const [downloaded, setDownloaded] = useState(false);
 
+  const fileName = config ? suggestedFileName(config) : "deployment-optimized.yaml";
+  const isKubernetes = fileName === "deployment-optimized.yaml";
+  const artifactLabel = isKubernetes ? "optimized YAML" : "optimized configuration";
+
   const download = () => {
     if (!config) return;
-    const blob = new Blob([config.optimized_yaml], { type: "application/x-yaml" });
+    const blob = new Blob([config.optimized_yaml], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = "deployment-optimized.yaml";
+    anchor.download = fileName;
     anchor.click();
     URL.revokeObjectURL(url);
     setDownloaded(true);
@@ -40,8 +51,9 @@ export function OptimizedConfigPanel({
       {!config && !loading && !error && (
         <div>
           <p className="text-sm text-slate-500">
-            Generate the optimized YAML from the accepted recommendation. Your original file is
-            never modified.
+            Generate the optimized {artifactLabel} from the accepted recommendation. Your
+            original file is never modified — the artifact is round-trip validated through
+            the parser for its format before anything is shown.
           </p>
           <button
             type="button"
@@ -49,12 +61,12 @@ export function OptimizedConfigPanel({
             data-testid="generate-config"
             className="mt-3 rounded-lg bg-eco-600 px-4 py-2 text-sm font-medium text-white hover:bg-eco-700"
           >
-            Generate optimized YAML
+            Generate optimized configuration
           </button>
         </div>
       )}
 
-      {loading && <Spinner label="Generating and round-trip validating the manifest…" />}
+      {loading && <Spinner label="Generating and round-trip validating the artifact…" />}
 
       {error && (
         <p className="text-sm text-slate-500" data-testid="config-unavailable">
@@ -64,13 +76,28 @@ export function OptimizedConfigPanel({
 
       {config && !loading && (
         <div>
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            {config.changes.map((change, index) => (
-              <Badge key={index} tone="improvement">
-                {change.parameter}: {change.current} → {change.suggested}
-              </Badge>
-            ))}
-          </div>
+          {config.changes.length > 0 && (
+            <div className="mb-3 flex flex-wrap items-center gap-2" data-testid="config-changes">
+              {config.changes.map((change, index) => (
+                <Badge key={index} tone="improvement">
+                  {change.parameter}: {change.current} → {change.suggested}
+                </Badge>
+              ))}
+            </div>
+          )}
+
+          {config.notes.length > 0 && (
+            <div className="mb-3 space-y-1" data-testid="config-notes">
+              {config.notes.map((note) => (
+                <p
+                  key={note}
+                  className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800"
+                >
+                  Note: {note}
+                </p>
+              ))}
+            </div>
+          )}
 
           <pre
             data-testid="diff-view"
@@ -90,11 +117,11 @@ export function OptimizedConfigPanel({
               data-testid="download-config"
               className="rounded-lg bg-eco-600 px-4 py-2 text-sm font-medium text-white hover:bg-eco-700"
             >
-              Download optimized YAML
+              Download {fileName}
             </button>
             {downloaded && (
               <span className="text-xs text-eco-700" data-testid="downloaded-note">
-                Saved as deployment-optimized.yaml
+                Saved as {fileName}
               </span>
             )}
           </div>

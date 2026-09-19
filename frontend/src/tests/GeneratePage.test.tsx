@@ -251,4 +251,43 @@ describe("Mode B frontend", () => {
     });
     expect(screen.queryByTestId("generation-result")).toBeNull();
   });
+
+  it("demo scenarios pre-fill the form: auto and explicit targets", () => {
+    openGeneratePage();
+    fireEvent.click(screen.getByTestId("generation-demo-enter"));
+    expect(screen.getByTestId("generation-demo-browser")).toBeDefined();
+
+    // Scenario 4: same bursty e-commerce workload, auto target.
+    fireEvent.click(screen.getByTestId("generation-preset-scenario-4"));
+    expect(screen.getByTestId("generate-page")).toBeDefined();
+    expect(
+      (screen.getByLabelText("Application type") as HTMLSelectElement).value,
+    ).toBe("e-commerce");
+    expect((screen.getByLabelText("Traffic pattern") as HTMLSelectElement).value).toBe(
+      "bursty",
+    );
+    expect(
+      (screen.getByLabelText("Generate configuration for") as HTMLSelectElement).value,
+    ).toBe("auto");
+
+    // Scenario 5: same workload, explicit Kubernetes target.
+    fireEvent.click(screen.getByTestId("generation-demo-enter"));
+    fireEvent.click(screen.getByTestId("generation-preset-scenario-5"));
+    expect(
+      (screen.getByLabelText("Generate configuration for") as HTMLSelectElement).value,
+    ).toBe("kubernetes");
+  });
+
+  it("demo scenario 4 submits through the full result screen", async () => {
+    mockedGenerate.mockResolvedValueOnce(makeResult());
+    openGeneratePage();
+    fireEvent.click(screen.getByTestId("generation-demo-enter"));
+    fireEvent.click(screen.getByTestId("generation-preset-scenario-4"));
+    fireEvent.click(screen.getByTestId("generate-submit"));
+    await waitFor(() => expect(screen.getByTestId("generation-result")).toBeDefined());
+    const [workloadArg, targetArg] = mockedGenerate.mock.calls[0];
+    expect(workloadArg.application_type).toBe("e-commerce");
+    expect(workloadArg.traffic_pattern).toBe("bursty");
+    expect(targetArg).toBeNull(); // "auto"
+  });
 });

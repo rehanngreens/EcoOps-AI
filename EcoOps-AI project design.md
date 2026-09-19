@@ -1536,7 +1536,7 @@ Do NOT attempt to build everything simultaneously.
 
 Follow this order.
 
-STATUS (Revision 2): Phases 1–17 are COMPLETE and verified. The order below is the authoritative continuation. Phases 12 and 13 keep their original numbers and intent. Mode B is delivered in NEW Phases 14–17, after the core optimization pipeline is stable (including both remaining parsers) and before final integration/testing. The old Phases 14–17 are renumbered to 18–21 with unchanged content — this is the only renumbering, it affects only PENDING phases, and no completed phase number changes.
+STATUS (Revision 2): Phases 1–18 are COMPLETE and verified. The order below is the authoritative continuation. Phases 12 and 13 keep their original numbers and intent. Mode B is delivered in NEW Phases 14–17, after the core optimization pipeline is stable (including both remaining parsers) and before final integration/testing. The old Phases 14–17 are renumbered to 18–21 with unchanged content — this is the only renumbering, it affects only PENDING phases, and no completed phase number changes.
 
 PHASE 1:
 Repository + project structure                                    [DONE]
@@ -1628,7 +1628,7 @@ PHASE 17 (NEW — Mode B, part 4):
 Mode B API + dashboard workflow                      [DONE — POST /api/v1/generate runs the full pipeline (requirement engine -> candidates -> evaluation -> target selection -> IaC rendering) and persists everything in the new `generations` table (migration 005) including rejected candidates; GET /generation/{id} replays a stored generation without re-running the pipeline, /configuration returns the architecture summary, /optimize re-ranks with the stored target; infeasible generations are an explicit 422 with per-check explanations and are still persisted; invalid targets 400, unknown ids 404; frontend gains the two-entry landing ("Analyze existing infrastructure" / "Create sustainable infrastructure"), a workload-only form (no IaC knowledge needed) with target selection incl. "Let EcoOps AI choose", and a result screen with architecture summary, why-this-configuration, impact estimates, rejected-candidate list, and validated-artifact preview/download; predictor mocked in tests for CI parity; 261 backend + 34 frontend tests passing, live smoke verified all endpoints end-to-end with the real model and Mode A regression clean]
 
 PHASE 18 (was 14):
-Full integration                                                   [pending]
+Full integration                                                   [DONE — backend/app/services/optimized_iac_service.py closes the Phase 10 gate by REUSE: optimized analysis-output generation now covers Terraform (Phase 16 template with instance-shape adaptation — re-selection when the stored type does not cover the optimized sizing, cpu/memory snapped to the discrete instance spec, fractional storage rounded up, autoscaling dropped, resource-safe application names — every adaptation a visible note) and Docker Compose (request/limit separation: reservations carry requests, limits carry limits; storage noted as not expressible), each artifact MANDATORILY round-trip validated through the same Phase 12/13 parser used for user uploads and diffed against the never-modified stored original; the Kubernetes Phase 10 path is byte-identical in behavior; per-source dispatch replaces the explicit 400 in GET /analysis/{id}/optimized-config, impossible cases stay explicit 503/400, the response schema gains additive `notes`; the Compose template upgrade (true limits) applies to Mode B generation too; frontend: OptimizedConfigPanel renders all three formats with format-aware filename, notes section and download, DashboardPage offers the full recommendation + optimized-config flow for every source; the Mode B generate page gains the guided demo section with design-doc section 30 scenarios 4 (bursty e-commerce, "Let EcoOps AI choose") and 5 (same workload, explicit Kubernetes); scripts/verify_all_phases.py extended to 63 live checks including Mode B end-to-end for all four targets and the new Mode A per-source paths; verified 280 backend tests with and without model artifacts (CI parity), 22 ML, 38 frontend, live smoke all green]
 
 PHASE 19 (was 15):
 Testing                                                            [pending]
@@ -1650,7 +1650,7 @@ Revised-phase-mapping summary (explicit, as required):
 | — (did not exist) | 15 (Candidate Generator + evaluation) | DONE |
 | — (did not exist) | 16 (IaC Generation + Target Selection) | DONE |
 | — (did not exist) | 17 (Mode B API + dashboard) | DONE |
-| 14 (Full integration) | 18 | renumbered |
+| 14 (Full integration) | 18 | DONE |
 | 15 (Testing) | 19 | renumbered |
 | 16 (Dockerization) | 20 | renumbered |
 | 17 (AWS deployment) | 21 | renumbered |

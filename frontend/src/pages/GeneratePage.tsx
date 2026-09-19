@@ -51,6 +51,43 @@ const DEFAULT_GENERATION_WORKLOAD: WorkloadProfile = {
   sustainability_priority: "medium",
 };
 
+/** Design doc section 30, scenarios 4-5: workload-only Mode B demos. */
+const DEMO_SCENARIO_WORKLOAD: WorkloadProfile = {
+  ...DEFAULT_GENERATION_WORKLOAD,
+  application_type: "e-commerce",
+  expected_users: 10000,
+  traffic_level: "high",
+  max_latency_ms: 250,
+  availability_target: 99.95,
+  average_rps: 500,
+  peak_rps: 2500,
+  traffic_pattern: "bursty",
+  storage_gb: 100,
+  autoscaling_required: true,
+  performance_priority: "high",
+};
+
+const GENERATION_DEMO_SCENARIOS = [
+  {
+    id: "scenario-4",
+    label: "Scenario 4 — Let EcoOps AI choose",
+    description:
+      "Bursty e-commerce, 10,000 users, high availability, autoscaling required. " +
+      "The target-selection rule fires visibly before candidates are evaluated.",
+    target: "auto",
+    workload: DEMO_SCENARIO_WORKLOAD,
+  },
+  {
+    id: "scenario-5",
+    label: "Scenario 5 — Explicit Kubernetes",
+    description:
+      "The same workload, but you pick Kubernetes explicitly. The generated " +
+      "manifest round-trip parses back to the selected configuration.",
+    target: "kubernetes",
+    workload: DEMO_SCENARIO_WORKLOAD,
+  },
+] as const;
+
 function download(filename: string, content: string) {
   const blob = new Blob([content], { type: "text/plain" });
   const url = URL.createObjectURL(blob);
@@ -68,6 +105,7 @@ export function GeneratePage({ onReset }: { onReset: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GenerateResponse | null>(null);
   const [openArtifact, setOpenArtifact] = useState<string | null>(null);
+  const [demoOpen, setDemoOpen] = useState(false);
 
   const update = <K extends keyof WorkloadProfile>(key: K, value: WorkloadProfile[K]) =>
     setWorkload((current) => ({ ...current, [key]: value }));
@@ -241,6 +279,66 @@ export function GeneratePage({ onReset }: { onReset: () => void }) {
       </header>
 
       {error && <ErrorBanner message={error} />}
+
+      {/* Guided demo scenarios (design doc section 30, scenarios 4-5). */}
+      <div data-testid="generation-demo-section">
+        {!demoOpen ? (
+          <button
+            type="button"
+            data-testid="generation-demo-enter"
+            disabled={busy}
+            onClick={() => setDemoOpen(true)}
+            className="rounded-lg border border-eco-200 bg-eco-50 px-4 py-2 text-sm font-medium text-eco-700 transition-colors hover:bg-eco-100 disabled:opacity-50"
+          >
+            Try a guided generation demo →
+          </button>
+        ) : (
+          <div
+            data-testid="generation-demo-browser"
+            className="rounded-lg border border-slate-200 bg-slate-50/60 p-4"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Generation demo scenarios
+              </p>
+              <button
+                type="button"
+                data-testid="generation-demo-close"
+                onClick={() => setDemoOpen(false)}
+                className="text-xs font-medium text-slate-500 hover:text-slate-700"
+              >
+                Close
+              </button>
+            </div>
+            <p className="mt-2 text-sm font-medium text-slate-700">
+              Choose a workload-only scenario — the form is pre-filled and editable.
+            </p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {GENERATION_DEMO_SCENARIOS.map((scenario) => (
+                <button
+                  key={scenario.id}
+                  type="button"
+                  data-testid={`generation-preset-${scenario.id}`}
+                  disabled={busy}
+                  onClick={() => {
+                    setWorkload(scenario.workload);
+                    setTarget(scenario.target);
+                    setDemoOpen(false);
+                  }}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-3 text-left transition-colors hover:border-eco-500 hover:bg-eco-50 disabled:opacity-50"
+                >
+                  <span className="block text-sm font-medium text-slate-800">
+                    {scenario.label}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-slate-400">
+                    {scenario.description}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Workload requirements</h2>

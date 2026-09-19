@@ -14,7 +14,13 @@ class ConfigChange(BaseModel):
 
 
 class OptimizedConfigResponse(BaseModel):
-    """Original and optimized manifests with a readable diff."""
+    """Original and optimized manifests with a readable diff.
+
+    Phase 18: `changes` carries the parameter-level change list for the
+    Kubernetes path; `notes` carries per-target adaptation notices for the
+    Terraform/Docker Compose paths (instance-type mapping, autoscaling
+    drop, storage non-expressibility). The two are mutually exclusive.
+    """
 
     analysis_id: str
     source: str  # "stored_original" or "canonical"
@@ -22,4 +28,5 @@ class OptimizedConfigResponse(BaseModel):
     optimized_yaml: str
     diff: list[str] = Field(default_factory=list)
     changes: list[ConfigChange] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
     disclaimer: str

@@ -224,6 +224,7 @@ export const optimizedConfig: OptimizedConfigResponse = {
   source: "stored_original",
   original_yaml: "apiVersion: apps/v1\nkind: Deployment",
   optimized_yaml: "apiVersion: apps/v1\nkind: Deployment\n# optimized",
+  notes: [],
   diff: [
     " apiVersion: apps/v1",
     " kind: Deployment",

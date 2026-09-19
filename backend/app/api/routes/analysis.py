@@ -48,6 +48,11 @@ from app.services import (
 )
 from app.services.config_generator_service import ConfigGenerationError
 from app.services.feature_service import extract_features
+from app.services.optimized_iac_service import (
+    OptimizedIaCError,
+    OPTIMIZED_IAC_DISCLAIMER,
+)
+from app.services import optimized_iac_service
 from app.services.prediction_service import (
     ModelArtifactsUnavailableError,
     ModelCompatibilityError,
@@ -148,23 +153,9 @@ def _parse_upload(file: UploadFile, upload_text: str) -> InfrastructureConfigura
     return InfrastructureConfiguration.model_validate(parsed)
 
 
-def _ensure_kubernetes_source(configuration: InfrastructureConfiguration) -> None:
-    """Gate optimized-config generation to Kubernetes sources (Phase 10 scope).
-
-    Terraform configurations are analyzed fully (prediction, estimation,
-    constraints, score) but manifest rewriting is Kubernetes-specific;
-    Terraform generation arrives with the Mode B IaC generation phase.
-    Fail with an explicit message instead of corrupting the original.
-    """
-    if configuration.source_type != "kubernetes":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "Optimized configuration generation is currently supported "
-                "for Kubernetes sources only; Terraform and Docker Compose "
-                "support arrives with the IaC generation phase (Phase 16)."
-            ),
-        )
+# Phase 18: the Phase 10 Kubernetes-only gate on optimized-config generation
+# is gone — per-source dispatch below covers Kubernetes (Phase 10 rewrite),
+# Terraform and Docker Compose (Phase 16 templates + round-trip validation).
 
 
 def _parse_workload(raw: str | None) -> WorkloadProfile:
@@ -448,14 +439,19 @@ def get_optimized_config(
     analysis_id: str,
     db: Session = Depends(get_db),
 ) -> OptimizedConfigResponse:
-    """Generate the optimized manifest from the stored recommendation."""
+    """Generate the optimized IaC artifact from the stored recommendation.
+
+    Phase 18: per-source dispatch. Kubernetes keeps the Phase 10
+    manifest-preserving rewrite; Terraform and Docker Compose render
+    through the Phase 16 templates with the same mandatory round-trip
+    validation. The original upload is never modified in any path.
+    """
     record = analysis_service.get_analysis(db, analysis_id)
     if record is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Analysis '{analysis_id}' not found",
         )
-    _ensure_kubernetes_source(analysis_service.to_configuration(record))
 
     try:
         stored = recommendation_service.get_recommendations(db, analysis_id)
@@ -493,12 +489,44 @@ def get_optimized_config(
     optimized = InfrastructureConfiguration.model_validate(optimized_configuration)
     baseline = analysis_service.to_configuration(record)
     original_text = record.original_yaml or ""
+    source_type = baseline.source_type
 
-    try:
-        generated = config_generator_service.generate_optimized_config(
-            original_text, optimized, baseline
+    disclaimer = (
+        "The optimized manifest is a proposal generated from advisory "
+        "estimates. The original configuration is preserved unchanged; "
+        "review the diff and deploy manually only if you accept it."
+    )
+
+    if source_type == "kubernetes":
+        try:
+            generated = config_generator_service.generate_optimized_config(
+                original_text, optimized, baseline
+            )
+        except ConfigGenerationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=str(exc),
+            ) from exc
+        return OptimizedConfigResponse(
+            analysis_id=record.id,
+            source=generated_source(original_text),
+            original_yaml=(
+                original_text
+                if original_text.strip()
+                else generated_canonical_original(optimized)
+            ),
+            optimized_yaml=generated.optimized_yaml,
+            diff=generated.diff_lines,
+            changes=generated.changes,
+            disclaimer=disclaimer,
         )
-    except ConfigGenerationError as exc:
+
+    # Phase 18: Terraform and Docker Compose via the Phase 16 templates.
+    try:
+        generated = optimized_iac_service.generate_optimized_iac(
+            original_text, optimized, baseline, source_type
+        )
+    except OptimizedIaCError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
@@ -507,19 +535,12 @@ def get_optimized_config(
     return OptimizedConfigResponse(
         analysis_id=record.id,
         source=generated_source(original_text),
-        original_yaml=(
-            original_text
-            if original_text.strip()
-            else generated_canonical_original(optimized)
-        ),
-        optimized_yaml=generated.optimized_yaml,
+        original_yaml=original_text,
+        optimized_yaml=generated.optimized_text,
         diff=generated.diff_lines,
-        changes=generated.changes,
-        disclaimer=(
-            "The optimized manifest is a proposal generated from advisory "
-            "estimates. The original configuration is preserved unchanged; "
-            "review the diff and deploy manually only if you accept it."
-        ),
+        changes=[],
+        notes=list(generated.notes),
+        disclaimer=OPTIMIZED_IAC_DISCLAIMER,
     )
 
 
