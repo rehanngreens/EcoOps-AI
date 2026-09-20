@@ -70,7 +70,7 @@ Cost / energy / carbon estimation
 | Terraform | AWS EC2 subset: `aws_instance` (instance type via an AWS metadata table, count, tags.Name, storage), `provider "aws"` region, ASG detection. Variable interpolation and other resource types are rejected with clear errors | Implemented (Phase 12) |
 | Docker Compose | `services` (primary-service selection for multi-service files with a visible warning), `deploy.replicas`, v3 `deploy.resources` limits/reservations plus v2-style `cpus:`/`mem_limit:`, Docker memory-unit semantics. Detected structurally (top-level `services:`) — no dedicated extension needed | Implemented (Phase 13) |
 
-Terraform and Docker Compose analyses support the full prediction/estimation/constraint/score pipeline; optimized-manifest *generation* is Kubernetes-only until the IaC generation phase and returns an explicit 400 for other sources.
+Terraform and Docker Compose analyses support the full prediction/estimation/constraint/score pipeline, including optimized-manifest generation (Phase 18): Terraform renders through the IaC template with instance-shape adaptation, Docker Compose renders with true request/limit separation, and each artifact is round-trip validated through its own parser and diffed against the never-modified original.
 
 ## Recommendation principles
 
@@ -234,7 +234,20 @@ Run the backend first (default `http://localhost:8000`, override with `BACKEND_P
 docker compose up -d --build
 ```
 
-Starts Postgres, the FastAPI backend (port 8000), and the dashboard as a static nginx container (port 5173) that proxies `/api` to the backend — no CORS involved in this mode. Open http://localhost:5173. Trained model artifacts (`ml/models/`) must exist on the host before `up` (they are volume-mounted read-only; see the ML README to train them).
+Starts Postgres, the FastAPI backend, and the dashboard as a static nginx container (port 5173) that proxies `/api` to the backend — no CORS involved in this mode. Open http://localhost:5173. Trained model artifacts (`ml/models/`) must exist on the host before `up` (they are volume-mounted read-only into the backend; see the ML README to train them).
+
+Production-style hardening (Phase 20):
+
+- The backend waits for Postgres to be **healthy** (`pg_isready` healthcheck gate), not merely started, so startup migrations can never race the database.
+- All three services define `HEALTHCHECK`s, so `docker compose ps` shows real status; the backend probe uses the stdlib (the slim image ships no curl) and runs as a **non-root user**.
+- The raw API and the database are published **on loopback only** (`127.0.0.1:8000`, `127.0.0.1:5432`); the browser path is http://localhost:5173 via the nginx proxy.
+- `restart: unless-stopped` on every service; images are tagged `ecoops-backend` / `ecoops-frontend`.
+
+Verify the containerized stack end-to-end (63 phase-by-phase checks incl. Mode B):
+
+```bash
+BACKEND_URL=http://127.0.0.1:8000 backend/.venv/bin/python scripts/verify_all_phases.py
+```
 
 ## License
 

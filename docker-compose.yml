@@ -6,9 +6,10 @@ services:
       POSTGRES_PASSWORD: ecoops
       POSTGRES_DB: ecoops
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ecoops -d ecoops"]
       interval: 5s
@@ -18,8 +19,11 @@ services:
   backend:
     build:
       context: ./backend
+    image: ecoops-backend:latest
+    # Loopback-only: the API is reachable directly for local tooling
+    # (scripts/verify_all_phases.py) and through the nginx /api/ proxy.
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
       DATABASE_URL: postgresql+psycopg://ecoops:ecoops@postgres:5432/ecoops
       DEBUG: "true"
@@ -27,6 +31,9 @@ services:
       MODEL_DIR: /models
     volumes:
       - ./ml/models:/models:ro
+    restart: unless-stopped
+    # Wait until Postgres actually accepts connections, not just started —
+    # otherwise the startup migration can crash the container.
     depends_on:
       postgres:
         condition: service_healthy
@@ -34,8 +41,10 @@ services:
   frontend:
     build:
       context: ./frontend
+    image: ecoops-frontend:latest
     ports:
       - "5173:80"
+    restart: unless-stopped
     depends_on:
       - backend
 
