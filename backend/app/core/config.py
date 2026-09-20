@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
 
     max_upload_size_bytes: int = 1_048_576
-    allowed_upload_extensions: str = ".yaml,.yml"
+    allowed_upload_extensions: str = ".yaml,.yml,.tf"
 
     database_url: str = "postgresql+psycopg://ecoops:ecoops@localhost:5432/ecoops"
     estimation_period_hours: float = Field(default=730.0, gt=0)
@@ -38,6 +38,15 @@ class Settings(BaseSettings):
     traffic_multiplier_medium: float = Field(default=1.0, gt=0)
     traffic_multiplier_high: float = Field(default=2.0, gt=0)
     traffic_multiplier_variable: float = Field(default=1.25, gt=0)
+
+    # Phase 11 sustainability-score weights (design doc section 23). The score
+    # is a weighted mean of five normalized components; weights are documented
+    # prototype choices, not scientifically calibrated values.
+    score_weight_resource_efficiency: float = Field(default=0.30, ge=0, le=1)
+    score_weight_energy_efficiency: float = Field(default=0.25, ge=0, le=1)
+    score_weight_carbon_impact: float = Field(default=0.25, ge=0, le=1)
+    score_weight_cost_efficiency: float = Field(default=0.15, ge=0, le=1)
+    score_weight_constraint_compliance: float = Field(default=0.05, ge=0, le=1)
 
     model_dir: Path = PROJECT_ROOT / "ml" / "models"
 

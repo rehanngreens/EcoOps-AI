@@ -1,10 +1,15 @@
 # EcoOps AI
 
-> **An AI-powered cloud sustainability advisor for pre-deployment infrastructure optimization.**
+> **An AI-powered pre-deployment cloud sustainability advisor that can either analyze an existing Infrastructure as Code configuration or design and generate an optimized infrastructure configuration from workload requirements.**
 
-EcoOps AI helps Cloud and DevOps engineers review Infrastructure as Code (IaC) *before* deployment. It analyzes infrastructure allocations alongside a workload profile to identify likely overprovisioning, predict resource utilization, estimate cost, energy use, and carbon impact, and propose constraint-aware optimizations for human review.
+EcoOps AI helps Cloud and DevOps engineers review infrastructure *before* deployment, through two workflows:
 
-This repository implements the first seven phases of the planned final-year B.Tech CSE prototype: Kubernetes analysis, ML utilization prediction, and transparent cost/energy/carbon estimation. The remaining roadmap is documented below.
+- **Workflow A — Analyze Existing Infrastructure** *(implemented through Phase 11)*: upload Terraform, Kubernetes, or Docker Compose plus a workload profile. EcoOps AI identifies likely overprovisioning, predicts resource utilization, estimates cost, energy use, and carbon impact, and proposes constraint-aware optimizations as a separate optimized copy of the original IaC for human review.
+- **Workflow B — Create Sustainable Infrastructure** *(designed; Phases 14–17)*: describe only the application workload in a plain-language form (no IaC knowledge needed), optionally letting EcoOps AI choose the target by explicit rules. The system designs candidate infrastructures, evaluates each through the same ML/estimation/constraint pipeline, ranks them, and generates valid IaC for review and download.
+
+Both workflows are advisory decision support. EcoOps AI never deploys infrastructure, runs uploaded IaC, applies changes, or silently changes a user's files.
+
+This repository implements the first eleven phases of the planned final-year B.Tech CSE prototype: Kubernetes analysis, ML utilization prediction, transparent cost/energy/carbon estimation, a constraint engine, and a recommendation engine. The remaining roadmap — including the two-mode extension — is documented below.
 
 ## Why EcoOps AI?
 
@@ -59,13 +64,13 @@ Cost / energy / carbon estimation
 
 ## Supported IaC formats
 
-| Format | Planned coverage | Priority |
+| Format | Coverage | Status |
 | --- | --- | --- |
-| Kubernetes YAML | Deployments, resource requests/limits, replicas, and autoscaling-related details | MVP |
-| Terraform | Cloud provider, region, instance types/counts, storage, and autoscaling details | Extension |
-| Docker Compose | Services, replicas, CPU, memory, and storage constraints | Extension |
+| Kubernetes YAML | Deployments, resource requests/limits, replicas, and autoscaling-related details | Implemented |
+| Terraform | AWS EC2 subset: `aws_instance` (instance type via an AWS metadata table, count, tags.Name, storage), `provider "aws"` region, ASG detection. Variable interpolation and other resource types are rejected with clear errors | Implemented (Phase 12) |
+| Docker Compose | `services` (primary-service selection for multi-service files with a visible warning), `deploy.replicas`, v3 `deploy.resources` limits/reservations plus v2-style `cpus:`/`mem_limit:`, Docker memory-unit semantics. Detected structurally (top-level `services:`) — no dedicated extension needed | Implemented (Phase 13) |
 
-Kubernetes is the first end-to-end implementation target. Terraform and Docker Compose support follow once the MVP is stable.
+Terraform and Docker Compose analyses support the full prediction/estimation/constraint/score pipeline, including optimized-manifest generation (Phase 18): Terraform renders through the IaC template with instance-shape adaptation, Docker Compose renders with true request/limit separation, and each artifact is round-trip validated through its own parser and diffed against the never-modified original.
 
 ## Recommendation principles
 
@@ -125,17 +130,20 @@ Kubernetes YAML upload → validation → parser → normalized JSON API respons
 
 ## Planned API
 
-These endpoints are design targets and may change as the application is implemented.
+Implemented endpoints are marked below; the interactive FastAPI docs are also available at `/docs` when the server runs. The `GET /api/v1/analysis/{id}` aggregate endpoint is still a design target; analysis data is currently exposed via the per-resource endpoints.
 
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| `POST` | `/api/v1/validate` | Validate an uploaded IaC configuration |
-| `POST` | `/api/v1/analyze` | Submit IaC and a workload profile for analysis |
-| `GET` | `/api/v1/analysis/{id}` | Retrieve an analysis result |
-| `POST` | `/api/v1/analysis/{id}/optimize` | Produce optimization recommendations |
-| `GET` | `/api/v1/analysis/{id}/recommendations` | Retrieve recommendations |
-| `GET` | `/api/v1/analysis/{id}/configuration` | Retrieve normalized configuration data |
-| `GET` | `/api/v1/analysis/{id}/optimized-config` | Retrieve the proposed optimized configuration |
+| Method | Endpoint | Purpose | Status |
+| --- | --- | --- | --- |
+| `POST` | `/api/v1/validate` | Validate an uploaded Kubernetes YAML | Implemented |
+| `POST` | `/api/v1/analyze` | Analyze IaC + workload: parse, predict utilization, estimate cost/energy/carbon, evaluate constraints | Implemented |
+| `GET` | `/api/v1/analysis/{id}/configuration` | Retrieve stored normalized configuration | Implemented |
+| `GET` | `/api/v1/analysis/{id}/features` | Retrieve stored workload profile and ML-ready features | Implemented |
+| `GET` | `/api/v1/analysis/{id}/constraints` | Retrieve the constraint feasibility evaluation (recomputed from stored analysis) | Implemented |
+| `POST` | `/api/v1/analysis/{id}/optimize` | Generate, evaluate, rank, and persist scale-down recommendations; returns baseline and optimized sustainability scores with improvement | Implemented |
+| `GET` | `/api/v1/analysis/{id}/recommendations` | Retrieve the persisted recommendation set | Implemented |
+| `GET` | `/api/v1/analysis/{id}/optimized-config` | Retrieve the optimized configuration, a diff against the original, and the change list — for all three sources: Kubernetes manifest rewrite (Phase 10), Terraform and Docker Compose rendering with per-target adaptation notes (Phase 18) | Implemented |
+| `GET` | `/api/v1/analysis/{id}/score` | Compute the weighted sustainability score with disclosed methodology and configurable weights | Implemented |
+| `GET` | `/api/v1/analysis/{id}` | Retrieve an aggregate analysis result | Planned |
 
 ## Planned repository layout
 
@@ -163,15 +171,20 @@ EcoOps-AI/
 
 ## Development roadmap
 
-1. Create the repository structure.
-2. Implement Kubernetes YAML validation and parsing.
-3. Define the normalized infrastructure schema.
-4. Prepare data and train an initial utilization model.
-5. Add prediction, estimation, constraint, and recommendation services.
-6. Generate optimized YAML while preserving the original configuration.
-7. Build the dashboard and integrate the API.
-8. Add Terraform and Docker Compose parsers.
-9. Test, containerize, and optionally deploy.
+Phases 1–11 are **done**. Revised roadmap (design doc §31):
+
+1. Create the repository structure. (done)
+2. Implement Kubernetes YAML validation and parsing. (done)
+3. Define the normalized infrastructure schema. (done)
+4. Prepare data and train an initial utilization model. (done)
+5. Add prediction, estimation, constraint, and recommendation services. (done — phases 5–9)
+6. Generate optimized YAML while preserving the original configuration. (done — phase 10)
+7. Build the dashboard and integrate the API. (done — phase 11)
+8. Add Terraform and Docker Compose parsers. (done — phases 12–13)
+9. Workload-to-infrastructure generation: requirement engine, candidate generation/evaluation, IaC generation templates with target selection, and the Mode B API + dashboard entry points. (new phases 14–17)
+10. Full integration of all source formats and demo flows. (done — phase 18)
+11. Dedicated testing pass: full CI matrix with live end-to-end smoke, coverage tooling, cross-engine and edge-case tests. (done — phase 19)
+12. Containerization polish and optional AWS deployment. (phases 20–21)
 
 ## Contributing
 
@@ -179,7 +192,62 @@ Keep modules small and independently testable. In particular, parsers, ML code, 
 
 ## Project status
 
-**Phases 1–7 implemented:** Kubernetes parsing, normalized features, dataset preprocessing, utilization-model training, prediction API, and transparent cost/energy/carbon estimation. See [EcoOps-AI project design.md](<EcoOps-AI project design.md>) for the remaining roadmap.
+**Phases 1–20 implemented:** Kubernetes parsing, normalized features, dataset preprocessing, utilization-model training (including a documented synthetic Kubernetes-scale demand component, see `ml/synthetic_augment.py`), prediction API, transparent cost/energy/carbon estimation, the constraint engine (five configurable feasibility checks), the recommendation engine (constraint-gated candidate ranking with persisted results via `POST /analysis/{id}/optimize`), optimized configuration generation (`GET /analysis/{id}/optimized-config` returns the optimized artifact — Kubernetes manifest rewrite, Terraform, or Docker Compose — as a unified diff against the preserved original, with the change list for Kubernetes and per-target adaptation notes for Terraform/Compose), the weighted sustainability score (`GET /analysis/{id}/score`, disclosed methodology and configurable weights per design doc §23), the React dashboard with a guided three-family demo section (Kubernetes / Terraform / Docker Compose), the **Terraform parser** (Phase 12: AWS EC2 subset with content-based `.tf` detection), and the **Docker Compose parser** (Phase 13: structural detection via top-level `services:`, v3 + v2 resource syntax, primary-service selection with visible warnings for multi-service files), and the **Workload Requirement Engine** (Phase 14, first Mode B module: `WorkloadProfile` v2 optional fields — RPS, traffic pattern incl. bursty, storage, autoscaling, priorities — plus a deterministic requirement estimator with documented sizing rules, discrete ladders, and replica minimums shared with the constraint engine's availability and user-capacity checks). **Phase 15** adds the **Candidate Infrastructure Generator + evaluation loop**: 4–6 deterministic candidate configurations per request (lean/balanced/headroom/elastic sizing variants, conditional economy-storage, and a Terraform-style VM baseline from the Phase 12 instance-type table), each evaluated through the existing prediction/estimation/constraint/score pipeline with priority-derived weights, hard constraint gating, deterministic ranking, and a full infeasible-path explanation). **Phase 16** completes Mode B's core: **"Let EcoOps AI choose" target selection** (explicit first-match-wins rules — batch→Compose, database→Terraform(+K8s), autoscaling/bursty→Kubernetes HPA, ML/AI→Kubernetes, huge-scale/high-availability→Terraform+Kubernetes, else Compose) and the **IaC Generation Engine**, which renders the winning candidate into deterministic Terraform / Kubernetes / Docker Compose / Terraform+Kubernetes artifacts, each MANDATORILY round-trip-validated through the same parser that handles user uploads before anything is returned. **Phase 17** completes Mode B end-to-end: the `POST /api/v1/generate` API with persistence (`GET /generation/{id}` replay, `/configuration` summary, `/optimize` re-rank; infeasible requests are an explicit explained 422, never a violating config) and the frontend's two-entry-point landing — **"Analyze existing infrastructure"** (the existing upload flow) and **"Create sustainable infrastructure"** (a workload-only form, no IaC knowledge needed, with "Let EcoOps AI choose" target selection and a result screen showing the architecture summary, why-this-configuration explanation, impact estimates, rejected candidates, and preview/download of the validated artifacts). Mode B artifacts are prototypes for review — EcoOps AI never deploys anything. **Phase 18 (full integration)** removes the last cross-phase gap: optimized *analysis-output* generation now covers **all three source formats** — Terraform renders through the Phase 16 template with instance-type snapping (sizing mapped onto the discrete instance spec, fractional storage rounded up, autoscaling dropped) and Docker Compose renders with true request/limit separation — each round-trip validated through its own parser and never overwriting the original; the Mode B generate page gains the guided demo scenarios 4–5 (workload-only, "Let EcoOps AI choose" vs explicit target). **Phase 19 (testing)** makes the battery self-sufficient: CI runs the **full matrix** — backend tests with coverage (and an enforced no-model-artifacts guard for CI parity), the ML suite, frontend tests with coverage plus a production build, and a **live end-to-end smoke job** on pushes that trains small synthetic model artifacts (`scripts/train_ci_artifacts.py`), applies migrations, boots the real API, and gates on all 63 `scripts/verify_all_phases.py` checks. Coverage is measured and reported (no thresholds yet): backend **~94%**, frontend reports per file via `npm run test:coverage`. **Phase 20 (Dockerization)** hardens the one-command stack: healthcheck-gated backend startup (migrations can never race Postgres), a non-root backend container, HEALTHCHECKs on all three services, loopback-only API/database ports behind the nginx `/api/` proxy, and named images with restart policies. **Phase 21 (AWS deployment)** is optional and deferred — the design doc marks it as such; the product is complete without it. **Release v1.0.0** tags the completed two-MVP product.
+
+### Running the tests
+
+```bash
+# Backend (add --cov=app for coverage)
+cd backend && DATABASE_URL=sqlite:///:memory: python -m pytest tests/ -q
+
+# ML preprocessing suite
+python -m pytest ml/tests -q
+
+# Frontend (tests, or tests + coverage)
+cd frontend && npm test
+npm run test:coverage
+
+# Live end-to-end verification (needs a trained model and a running backend;
+# CI does this automatically on pushes with synthetic artifacts)
+python scripts/train_ci_artifacts.py   # or the real ml/train_model.py
+cd backend && alembic upgrade head && uvicorn app.main:app &
+python scripts/verify_all_phases.py    # 63 phase-by-phase checks
+```
+
+**Design revision 2 (two operating modes):** the design document now specifies Mode B — workload-to-infrastructure generation (new Phases 14–17, after the Terraform/Docker Compose parsers in Phases 12–13; integration/testing/Docker/AWS renumbered 18–21). See [EcoOps-AI project design.md](<EcoOps-AI project design.md>) for the authoritative specification, especially §4, §6, §27, §31, §32, §40, §43, and §44.
+
+## Frontend dashboard (Phase 11)
+
+The React dashboard (Vite + Tailwind + Recharts, in `frontend/`) covers all design-doc §22 sections: sustainability score with grade and component breakdown, cost/energy/carbon estimates, predicted utilization chart, current configuration, problems detected (failed constraint checks), constraint-gated recommendations with savings and a before/after score comparison, and the optimized YAML with colored diff and download. A guided **demo section** opens a two-level picker — choose *Kubernetes demos* or *Terraform demos*, then a well/moderate/heavy scenario — which stages the bundled manifest and pre-fills its canonical (editable) workload; custom uploads work exactly as before.
+
+```bash
+cd frontend
+npm install
+npm run dev        # http://localhost:5173 (proxies /api to the backend)
+```
+
+Run the backend first (default `http://localhost:8000`, override with `BACKEND_PORT` or `VITE_API_URL`). The dev server must stay on port 5173 (or 3000) because those are the backend's CORS allow-listed origins.
+
+## Run the whole stack with Docker
+
+```bash
+docker compose up -d --build
+```
+
+Starts Postgres, the FastAPI backend, and the dashboard as a static nginx container (port 5173) that proxies `/api` to the backend — no CORS involved in this mode. Open http://localhost:5173. Trained model artifacts (`ml/models/`) must exist on the host before `up` (they are volume-mounted read-only into the backend; see the ML README to train them).
+
+Production-style hardening (Phase 20):
+
+- The backend waits for Postgres to be **healthy** (`pg_isready` healthcheck gate), not merely started, so startup migrations can never race the database.
+- All three services define `HEALTHCHECK`s, so `docker compose ps` shows real status; the backend probe uses the stdlib (the slim image ships no curl) and runs as a **non-root user**.
+- The raw API and the database are published **on loopback only** (`127.0.0.1:8000`, `127.0.0.1:5432`); the browser path is http://localhost:5173 via the nginx proxy.
+- `restart: unless-stopped` on every service; images are tagged `ecoops-backend` / `ecoops-frontend`.
+
+Verify the containerized stack end-to-end (63 phase-by-phase checks incl. Mode B):
+
+```bash
+BACKEND_URL=http://127.0.0.1:8000 backend/.venv/bin/python scripts/verify_all_phases.py
+```
 
 ## License
 

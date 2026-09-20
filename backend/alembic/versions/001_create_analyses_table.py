@@ -25,7 +25,8 @@ def upgrade() -> None:
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            # CURRENT_TIMESTAMP works on both PostgreSQL and SQLite; now() is Postgres-only.
+            server_default=sa.text("CURRENT_TIMESTAMP"),
             nullable=False,
         ),
         sa.PrimaryKeyConstraint("id"),

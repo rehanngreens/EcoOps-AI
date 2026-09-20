@@ -23,6 +23,10 @@ DEFAULT_N_ESTIMATORS = 100
 DEFAULT_MAX_DEPTH = 16
 DEFAULT_MIN_SAMPLES_LEAF = 10
 
+# Documented synthetic Kubernetes-scale demand rows (design doc section 14).
+# Combined with real trace rows; see ml/synthetic_augment.py.
+SYNTHETIC_ROW_COUNT = 20_000
+
 # Workload fields are not present in the Google trace. Defaults match
 # backend/app/schemas/workload_schema.py so runtime FeatureVector columns align.
 DEFAULT_APPLICATION_TYPE_CODE = 3  # rest-api

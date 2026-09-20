@@ -1,0 +1,25 @@
+# Demo: heavily overprovisioned Docker Compose setup (design doc section 30, scenario 3).
+# 8 replicas x 8 CPU / 16G for an e-commerce workload with 10,000 users.
+# Includes a sidecar service to exercise primary-service selection: the
+# constrained service is analyzed, the sidecar is named in parser_warnings.
+# Expected result: multiple scale-down recommendations.
+# Expected parser output (sanity check for unit tests):
+#   application: api-backend (primary), warnings mention redis
+#   replicas: 8, cpu_request: 8.0, cpu_limit: 8.0,
+#   memory_request_gb: 16.0, memory_limit_gb: 16.0
+
+services:
+  api-backend:
+    image: ecommerce/api-backend:1.0.0
+    deploy:
+      replicas: 8
+      resources:
+        limits:
+          cpus: "8.0"
+          memory: 16g
+        reservations:
+          cpus: "8.0"
+          memory: 16g
+
+  redis:
+    image: redis:7-alpine
