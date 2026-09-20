@@ -23,6 +23,7 @@ build/
 .mypy_cache/
 .ruff_cache/
 .coverage
+backend/coverage-backend.xml
 htmlcov/
 
 # ML and datasets (large or generated artifacts)

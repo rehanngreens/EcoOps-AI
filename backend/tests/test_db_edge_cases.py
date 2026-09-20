@@ -217,18 +217,28 @@ class TestMigrationCycle:
     def test_migration_005_downgrade_upgrade_round_trip(self, tmp_path) -> None:
         """alembic downgrade -1 then upgrade +1 on a REAL file-backed DB:
         the generations table disappears and comes back with its schema."""
+        import os
         import subprocess
+        import sys
+        from pathlib import Path
 
+        # Run alembic with THIS interpreter (sys.executable -m alembic): the
+        # environment running the tests always has alembic installed, unlike
+        # a hardcoded .venv path, which only exists in local dev checkouts
+        # (CI installs packages into the setup-python interpreter). Anchor
+        # cwd to backend/ so alembic.ini is found regardless of where pytest
+        # was invoked from.
+        backend_dir = Path(__file__).resolve().parents[1]
         db_path = tmp_path / "migration_cycle.sqlite3"
-        env = {**dict(__import__("os").environ), "DATABASE_URL": f"sqlite:///{db_path}"}
+        env = {**os.environ, "DATABASE_URL": f"sqlite:///{db_path}"}
 
         def _alembic(*args: str) -> None:
             result = subprocess.run(
-                [".venv/bin/alembic", *args],
+                [sys.executable, "-m", "alembic", *args],
                 capture_output=True,
                 text=True,
                 env=env,
-                cwd=".",
+                cwd=backend_dir,
             )
             assert result.returncode == 0, result.stderr or result.stdout
 
