@@ -38,4 +38,33 @@ describe("apiClient", () => {
       message: expect.stringContaining("train_model"),
     });
   });
+
+  it("joins FastAPI list validation errors into one readable message", async () => {
+    mockFetchOnce(422, {
+      detail: [
+        { loc: ["body", "workload"], msg: "peak_rps must be >= average_rps", type: "value_error" },
+        { loc: ["body", "workload"], msg: "availability_target out of range", type: "value_error" },
+      ],
+    });
+    await expect(analyzeManifest("junk", null)).rejects.toMatchObject({
+      status: 422,
+      message: "peak_rps must be >= average_rps; availability_target out of range",
+    });
+  });
+
+  it("falls back to a generic message for non-JSON error bodies", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response("<html>Bad Gateway</html>", {
+          status: 502,
+          headers: { "Content-Type": "text/html" },
+        }),
+      ),
+    );
+    await expect(runOptimization("x")).rejects.toMatchObject({
+      status: 502,
+      message: "Request failed with status 502",
+    });
+  });
 });

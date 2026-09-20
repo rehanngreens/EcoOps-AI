@@ -1,6 +1,13 @@
+import atexit
 import os
+import tempfile
 
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+# File-backed SQLite (Phase 19): exercises the same per-checkout connection
+# pooling as production file DBs, unlike :memory: which shares a single
+# StaticPool connection and cannot model concurrent writers realistically.
+_TEST_DB = os.path.join(tempfile.gettempdir(), f"ecoops_test_{os.getpid()}.sqlite3")
+os.environ["DATABASE_URL"] = f"sqlite:///{_TEST_DB}"
+atexit.register(lambda: os.path.exists(_TEST_DB) and os.remove(_TEST_DB))
 
 from pathlib import Path
 

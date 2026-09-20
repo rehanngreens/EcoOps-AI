@@ -30,8 +30,8 @@ def record(phase: str, ok: bool, detail: str = "") -> None:
     print(f"{'PASS' if ok else 'FAIL'}  {phase}{'  — ' + detail if detail else ''}")
 
 
-def main() -> int:
-    client = httpx.Client(timeout=60)
+def main(client: httpx.Client | None = None) -> int:
+    client = client or httpx.Client(timeout=60)
     # Phase 6: process reachable (uvicorn app) — health endpoint.
     try:
         health = client.get(f"{BACKEND}/health")
@@ -260,6 +260,11 @@ def main() -> int:
     except Exception as exc:  # noqa: BLE001
         record("Mode B end-to-end (Phases 14-17)", False, str(exc))
 
+    return summarize()
+
+
+def summarize() -> int:
+    """Print the pass/fail rollup and return the process exit code."""
     print()
     failed = [name for name, ok, _ in results if not ok]
     total = len(results)

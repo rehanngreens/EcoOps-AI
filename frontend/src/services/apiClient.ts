@@ -25,8 +25,16 @@ async function handleResponse<T>(response: Response): Promise<T> {
     try {
       const body = await response.json();
       if (typeof body?.detail === "string") detail = body.detail;
+      else if (Array.isArray(body?.detail))
+        // FastAPI validation errors arrive as a list of {loc, msg, type}.
+        detail = (body.detail as { msg?: string }[])
+          .map((entry) => entry?.msg ?? JSON.stringify(entry))
+          .join("; ");
       else if (body?.detail && typeof body?.detail === "object")
-        return (await response.json()) as T; // handled by callers (infeasible 422)
+        // Structured failures (e.g. the Mode B infeasible 422) carry an
+        // `explanation`; the error object still surfaces status + message.
+        detail =
+          (body.detail as { explanation?: string }).explanation ?? "Request failed";
     } catch {
       // non-JSON error body; keep the generic message
     }
